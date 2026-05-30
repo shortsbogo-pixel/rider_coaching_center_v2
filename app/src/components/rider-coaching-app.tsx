@@ -33,6 +33,12 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
+  betaChecklist,
+  betaExcludedItems,
+  betaNotice,
+  getVisibleTestAccounts,
+} from "@/lib/beta";
+import {
   adminTabs,
   formatNumber,
   formatRate,
@@ -194,6 +200,7 @@ const choiceToneClass: Record<ChoiceTone, { selected: string; idle: string }> = 
     idle: "border-slate-200 bg-white text-slate-600",
   },
 };
+const visibleTestAccounts = getVisibleTestAccounts();
 
 function ScreenHeader({
   eyebrow,
@@ -217,6 +224,24 @@ function Panel({ children, className = "" }: { children: React.ReactNode; classN
   return <section className={`rounded-lg border border-slate-200 bg-white p-4 shadow-sm ${className}`}>{children}</section>;
 }
 
+function BetaNoticeCard() {
+  return (
+    <Panel className="border-blue-200 bg-blue-50">
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-blue-700">
+          <AlertTriangle size={20} />
+        </span>
+        <div>
+          <p className="text-xs font-black uppercase text-blue-700">{betaNotice.title}</p>
+          <h2 className="mt-1 text-lg font-black text-blue-950">쿠팡플러스 전용 코칭 베타</h2>
+          <p className="mt-2 text-sm font-bold leading-6 text-blue-950">{betaNotice.description}</p>
+          <p className="mt-1 text-xs font-bold leading-5 text-blue-800">{betaNotice.scope}</p>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
 function DataSourceNotice({ weekData }: { weekData: LatestUploadedWeekData }) {
   const isUploaded = weekData.source === "uploaded";
   return (
@@ -224,12 +249,12 @@ function DataSourceNotice({ weekData }: { weekData: LatestUploadedWeekData }) {
       <p>
         {isUploaded
           ? `업로드 데이터 적용 중 · ${weekData.weekLabel} · ${weekData.fileName}`
-          : "샘플 데이터 표시 중 · 엑셀 업로드 후 최신 업로드 데이터가 우선 적용됩니다."}
+          : "샘플 데이터 표시 중 · 관리자 업로드 전까지는 화면 흐름 확인용입니다."}
       </p>
       <p className="mt-1 font-semibold opacity-90">
         {isUploaded
-          ? "현재 브라우저 세션에서만 유지되며 새로고침 후에는 다시 업로드가 필요합니다."
-          : "업로드 데이터는 저장소에 남기지 않으므로 새로고침 후에는 다시 업로드가 필요합니다."}
+          ? "베타에서는 브라우저 세션만 유지됩니다. 새로고침 후 데이터가 사라지면 다시 업로드해 주세요."
+          : "정상 엑셀을 업로드하고 반영하면 업로드 데이터 기준으로 바뀝니다."}
       </p>
     </div>
   );
@@ -303,6 +328,7 @@ function LoginScreen({ onLogin }: { onLogin: (user: UserSession) => void }) {
             원천 엑셀 업로드, 관리자 코칭 관리, 라이더 본인 화면 분기를 테스트 계정으로 확인합니다.
           </p>
         </section>
+        <BetaNoticeCard />
 
         <form className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm" onSubmit={handleSubmit}>
           <label className="block">
@@ -329,17 +355,31 @@ function LoginScreen({ onLogin }: { onLogin: (user: UserSession) => void }) {
           {message ? <p className="mt-3 text-sm font-bold text-rose-600">{message}</p> : null}
         </form>
 
-        <div className="grid gap-2 text-xs font-semibold text-slate-600">
-          <button type="button" className="rounded-md border border-slate-200 bg-white px-3 py-2 text-left" onClick={() => { setId("admin"); setPassword("admin1234"); }}>
-            admin / admin1234
-          </button>
-          <button type="button" className="rounded-md border border-slate-200 bg-white px-3 py-2 text-left" onClick={() => { setId("rider1"); setPassword("rider1234"); }}>
-            rider1 / rider1234
-          </button>
-          <button type="button" className="rounded-md border border-slate-200 bg-white px-3 py-2 text-left" onClick={() => { setId("pending"); setPassword("pending1234"); }}>
-            pending / pending1234
-          </button>
-        </div>
+        {visibleTestAccounts.length ? (
+          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-black text-slate-950">베타 테스트 계정</h2>
+                <p className="mt-1 text-xs font-bold leading-5 text-slate-500">운영 배포 전에는 showTestAccounts 플래그로 숨길 예정입니다.</p>
+              </div>
+              <ShieldCheck className="shrink-0 text-blue-600" size={20} />
+            </div>
+            <div className="mt-3 grid gap-2">
+              {visibleTestAccounts.map((account) => (
+                <button
+                  type="button"
+                  className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-left"
+                  key={account.id}
+                  onClick={() => { setId(account.id); setPassword(account.password); }}
+                >
+                  <span className="block text-xs font-black text-blue-700">{account.label}</span>
+                  <strong className="mt-1 block text-sm text-slate-950">{account.id} / {account.password}</strong>
+                  <span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">{account.description}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
       </div>
     </main>
   );
@@ -1018,6 +1058,38 @@ function AdminPaceSettingsPanel({
   );
 }
 
+function BetaChecklistPanel() {
+  return (
+    <Panel>
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+          <ListChecks size={20} />
+        </span>
+        <div>
+          <h2 className="text-lg font-black">베타 체크리스트</h2>
+          <p className="mt-1 text-sm leading-5 text-slate-500">소규모 테스트에서 아래 순서대로 확인합니다.</p>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-2">
+        {betaChecklist.map((item, index) => (
+          <div className="flex items-center gap-3 rounded-md bg-slate-50 p-3" key={item.id}>
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white text-xs font-black text-slate-500">{index + 1}</span>
+            <span className="text-sm font-bold text-slate-800">{item.label}</span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 rounded-md bg-rose-50 p-3">
+        <p className="text-xs font-black text-rose-700">베타 제외 항목</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {betaExcludedItems.map((item) => (
+            <span className="rounded-md bg-white px-2 py-1 text-[11px] font-bold text-rose-700" key={item}>{item}</span>
+          ))}
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
 function SettingsTextarea({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
     <label className="block">
@@ -1046,6 +1118,8 @@ function AdminMore({
   return (
     <>
       <ScreenHeader eyebrow="More" title="더보기" description="자주 쓰지 않는 설정과 계정 관리를 모았습니다." />
+      <BetaNoticeCard />
+      <BetaChecklistPanel />
       <AdminPaceSettingsPanel
         paceSettings={paceSettings}
         onPaceSettingsChange={onPaceSettingsChange}
@@ -1312,7 +1386,7 @@ function RiderPaceCheck({
           </div>
         </div>
         <p className="mt-3 text-xs font-semibold leading-5 text-slate-500">
-          {lastWeekPace.hasEnoughDateData ? "활동일 평균입니다." : "데이터가 부족해 완료 수 중심으로 봅니다."}
+          {lastWeekPace.hasEnoughDateData ? "활동일 평균입니다." : "페이스 기준 데이터가 부족해 완료 수 중심으로 봅니다."}
         </p>
       </Panel>
 
@@ -1603,6 +1677,7 @@ function RiderMy({ user, metric }: { user: UserSession; metric: RiderMetric }) {
           </div>
         </div>
       </Panel>
+      <BetaNoticeCard />
       <Panel>
         <h2 className="text-lg font-black">문의 / 공지</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">문의 042-672-0901 · 이번 주 코칭 메시지는 토요일 오전에 업데이트됩니다.</p>
@@ -1683,8 +1758,9 @@ function RiderScreens({
       <>
         <DataSourceNotice weekData={weekData} />
         <Panel>
-          <h1 className="text-xl font-black">연결된 라이더 데이터가 없습니다.</h1>
-          <p className="mt-2 text-sm text-slate-500">관리자에게 계정 매핑을 확인해 주세요.</p>
+          <h1 className="text-xl font-black">본인 주차 데이터가 없습니다.</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-500">최신 업로드 주차에 이 계정의 rider_id와 매칭되는 라이더가 없을 수 있습니다.</p>
+          <p className="mt-2 rounded-md bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900">관리자에게 계정 매핑 또는 업로드 주차 데이터를 확인해 주세요.</p>
         </Panel>
       </>
     );
