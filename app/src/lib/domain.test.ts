@@ -9,7 +9,7 @@ import {
   validateUploadFileName,
 } from "./domain";
 
-describe("mock auth and role scope", () => {
+describe("auth and role scope", () => {
   it("routes admin, rider, and pending users into the correct first view", () => {
     expect(login("admin", "admin1234")?.homeView).toBe("admin:dashboard");
     expect(login("rider1", "rider1234")?.homeView).toBe("rider:home");

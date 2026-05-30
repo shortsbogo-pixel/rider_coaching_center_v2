@@ -4,7 +4,7 @@ export type ViewKey = "admin:dashboard" | "rider:home" | "pending";
 export type AdminScreen = "dashboard" | "upload" | "inspect" | "coaching" | "more";
 export type RiderScreen = "home" | "orders" | "map" | "coaching" | "my";
 export type SegmentKey = "Breakfast" | "Lunch_Peak" | "Post_Lunch" | "Dinner_Peak" | "Post_Dinner";
-export type DeliveryType = "단건" | "멀티배달1" | "멀티배달2" | "멀티배달3" | "확인필요";
+export type DeliveryType = "단건" | "멀티배달1" | "멀티배달2" | "멀티배달3" | "멀티배달4" | "멀티배달5" | "확인필요";
 
 export interface UserSession {
   id: string;
@@ -162,6 +162,8 @@ export const riderMetrics: RiderMetric[] = [
       멀티배달1: 38,
       멀티배달2: 34,
       멀티배달3: 17,
+      멀티배달4: 4,
+      멀티배달5: 1,
       확인필요: 5,
     },
     weekdayCompleted: {
@@ -204,6 +206,8 @@ export const riderMetrics: RiderMetric[] = [
       멀티배달1: 86,
       멀티배달2: 70,
       멀티배달3: 39,
+      멀티배달4: 7,
+      멀티배달5: 5,
       확인필요: 8,
     },
     weekdayCompleted: {
@@ -216,7 +220,7 @@ export const riderMetrics: RiderMetric[] = [
       화: 0,
     },
     coachingPoints: ["완료건수와 멀티 수행이 모두 안정적입니다.", "아침 구간은 선택적으로만 보강하면 됩니다."],
-    actionItems: ["현재 피크타임 패턴 유지", "월요일 활동 공백을 줄이면 상위권 유지 가능"],
+    actionItems: ["이번 주 피크타임 패턴 유지", "월요일 활동 공백을 줄이면 상위권 유지 가능"],
     mission: "강한 피크타임 패턴을 유지하고 월요일 공백만 줄여보세요.",
   },
 ];
@@ -298,7 +302,7 @@ export const coachingMessages: CoachingMessage[] = [
     riderName: "김수환",
     weekLabel: "2026년 5월 4주차",
     autoMessage:
-      "김수환님의 배차 친화 점수는 61점이며 현재 등급은 허용입니다. Post_Dinner 참여율은 강점이고, Post_Lunch 참여는 보강이 필요합니다.",
+      "김수환님의 배차 친화 점수는 61점이며 이번 주 등급은 허용입니다. Post_Dinner 참여율은 강점이고, Post_Lunch 참여는 보강이 필요합니다.",
     customMessage:
       "이번 주는 저녁 이후 흐름이 좋았습니다. 14:00~16:30 구간에서 2~3콜만 더 붙이면 완료건수와 점수가 같이 올라갈 가능성이 큽니다.",
     visibleToRider: true,
@@ -310,8 +314,8 @@ export const coachingMessages: CoachingMessage[] = [
     riderName: "박태우",
     weekLabel: "2026년 5월 4주차",
     autoMessage:
-      "박태우님의 배차 친화 점수는 88점이며 현재 등급은 에이스입니다. 피크타임 처리와 멀티 수행이 안정적입니다.",
-    customMessage: "현재 패턴을 유지하되 월요일 활동 공백만 줄이면 다음 주에도 상위권 유지가 가능합니다.",
+      "박태우님의 배차 친화 점수는 88점이며 이번 주 등급은 에이스입니다. 피크타임 처리와 멀티 수행이 안정적입니다.",
+    customMessage: "이번 주 패턴을 유지하되 월요일 활동 공백만 줄이면 다음 주에도 상위권 유지가 가능합니다.",
     visibleToRider: false,
     internalMemo: "상위권 유지. 메시지는 내부 검토 후 노출.",
     updatedAt: "2026-05-30 02:22",

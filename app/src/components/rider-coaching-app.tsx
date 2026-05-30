@@ -74,7 +74,8 @@ const riderIcons: Record<RiderScreen, LucideIcon> = {
 };
 
 const segments: SegmentKey[] = ["Breakfast", "Lunch_Peak", "Post_Lunch", "Dinner_Peak", "Post_Dinner"];
-const deliveryTypes: DeliveryType[] = ["단건", "멀티배달1", "멀티배달2", "멀티배달3", "확인필요"];
+const deliveryTypes: DeliveryType[] = ["단건", "멀티배달1", "멀티배달2", "멀티배달3", "멀티배달4", "멀티배달5", "확인필요"];
+const multiDeliveryTypes = deliveryTypes.filter((type) => type.startsWith("멀티배달"));
 const uploadIssueLabels: Record<UploadIssueType, string> = {
   delivery_type_missing: "배달타입 누락",
   delivery_type_unknown: "배달타입 확인",
@@ -171,7 +172,7 @@ function LoginScreen({ onLogin }: { onLogin: (user: UserSession) => void }) {
           <p className="text-sm font-semibold text-teal-200">Rider Coaching Center</p>
           <h1 className="mt-3 text-3xl font-black">주간 운행 데이터를 코칭으로 바꾸는 앱</h1>
           <p className="mt-3 text-sm leading-6 text-slate-300">
-            원천 엑셀 업로드, 관리자 코칭 관리, 라이더 본인 화면 분기를 mock data로 확인합니다.
+            원천 엑셀 업로드, 관리자 코칭 관리, 라이더 본인 화면 분기를 테스트 계정으로 확인합니다.
           </p>
         </section>
 
@@ -304,7 +305,7 @@ function AdminDashboard() {
     <>
       <ScreenHeader eyebrow="Admin Dashboard" title="주간 대시보드" description="5월4주차 원천 엑셀 기준 운영 현황입니다." />
       <div className="grid grid-cols-2 gap-3">
-        <StatTile label="완료 콜" value={`${formatNumber(summary.completed)}건`} caption="mock 원천 데이터" tone="blue" />
+        <StatTile label="완료 콜" value={`${formatNumber(summary.completed)}건`} caption="업로드 데이터 기준" tone="blue" />
         <StatTile label="운영 라이더" value={`${summary.activeRiders}명`} caption="활성 기준" tone="good" />
         <StatTile label="검수 이슈" value={`${summary.issueRows}건`} caption="확인 필요" tone="warn" />
         <StatTile label="노출 메시지" value={`${summary.visibleMessages}건`} caption="라이더 표시 ON" />
@@ -344,6 +345,7 @@ function AdminUpload() {
   const fileNameResult = selectedFileName ? validateUploadFileName(selectedFileName) : null;
   const hasRequiredSheet = sheetNames.includes(ORDER_DETAIL_SHEET_NAME);
   const canShowSummary = parseResult?.status === "ready";
+  const issueRowCount = parseResult ? new Set(parseResult.issues.map((issue) => issue.rowNumber)).size : 0;
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -446,10 +448,10 @@ function AdminUpload() {
       {parseResult ? (
         <>
           <div className="grid grid-cols-2 gap-3">
-            <StatTile label="기준 주차" value={parseResult.weekLabel ?? "-"} caption={parseResult.weekCode ?? "week_code 없음"} tone="blue" />
-            <StatTile label="전체 행 수" value={`${formatNumber(parseResult.totalRows)}행`} caption="빈 행 제외" />
-            <StatTile label="유효 오더" value={`${formatNumber(parseResult.validOrderCount)}건`} caption="필수값 통과" tone="good" />
-            <StatTile label="검수 이슈" value={`${formatNumber(parseResult.issueCount)}건`} caption="저장 전 확인" tone={parseResult.issueCount ? "warn" : "good"} />
+            <StatTile label="총행수" value={`${formatNumber(parseResult.totalRows)}행`} caption="빈 행 제외, 헤더 제외" tone="blue" />
+            <StatTile label="유효 오더 후보" value={`${formatNumber(parseResult.validOrderCount)}건`} caption="필수값 통과" tone="good" />
+            <StatTile label="확인 필요 행" value={`${formatNumber(issueRowCount)}행`} caption="누락값 포함 행" tone={issueRowCount ? "warn" : "good"} />
+            <StatTile label="이슈 건수" value={`${formatNumber(parseResult.issueCount)}건`} caption="한 행의 복수 이슈 중복 포함" tone={parseResult.issueCount ? "warn" : "good"} />
           </div>
 
           <Panel>
@@ -460,6 +462,7 @@ function AdminUpload() {
               <div className="flex justify-between gap-3"><span className="text-slate-500">헤더 기준</span><strong>7행 · B:Y</strong></div>
               <div className="flex justify-between gap-3"><span className="text-slate-500">저장 상태</span><strong className="text-blue-700">미저장 미리보기</strong></div>
             </div>
+            <p className="mt-3 text-xs font-semibold leading-5 text-slate-500">이슈 건수는 한 행에서 배달타입, 피크타임, 시간값이 동시에 누락된 경우 각각 1건씩 중복 집계됩니다.</p>
           </Panel>
 
           <Panel>
@@ -540,20 +543,25 @@ function AdminUpload() {
 function AdminInspect() {
   return (
     <>
-      <ScreenHeader eyebrow="Inspection" title="업로드 검수" description="저장 전 확인해야 할 데이터 품질 이슈를 주차 기준으로 정리합니다." />
+      <ScreenHeader eyebrow="Inspection" title="업로드 검수" description="저장 전 확인해야 할 데이터 품질 이슈를 행 단위와 이슈 단위로 나누어 봅니다." />
       <div className="grid grid-cols-2 gap-3">
-        <StatTile label="총 행 수" value="4,388행" caption="헤더 제외" tone="blue" />
-        <StatTile label="정상 파싱" value="4,115행" caption="오더 후보" tone="good" />
-        <StatTile label="확인필요" value="376행" caption="빈 값 포함" tone="warn" />
-        <StatTile label="분석 대상" value="42명" caption="라이더 기준" />
+        <StatTile label="총행수" value="4,388행" caption="빈 행 제외, 헤더 제외" tone="blue" />
+        <StatTile label="유효 오더 후보" value="4,115건" caption="필수값 통과" tone="good" />
+        <StatTile label="확인 필요 행" value="273행" caption="누락값 포함 행" tone="warn" />
+        <StatTile label="이슈 건수" value="819건" caption="복수 이슈 중복 포함" tone="warn" />
       </div>
       <Panel>
-        <h2 className="text-lg font-black">오류 / 미매칭</h2>
+        <h2 className="text-lg font-black">숫자 기준</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">확인 필요 행은 문제가 있는 오더 행 수입니다. 이슈 건수는 한 행에서 배달타입, 피크타임, 시간값이 동시에 누락되면 각각 1건씩 중복 집계합니다.</p>
+      </Panel>
+      <Panel>
+        <h2 className="text-lg font-black">이슈 유형</h2>
         <div className="mt-3 space-y-2">
           {[
-            ["배달타입 확인", "0 또는 멀티배달5 값은 확인필요로 분리"],
-            ["피크타임 빈 값", "구간 참여율 계산 전 검수 필요"],
-            ["라이더명 매칭", "동명이인 또는 suffix 차이 확인"],
+            ["배달타입 누락", "배달타입이 비어 있으면 저장 전 확인 대상으로 분류합니다."],
+            ["피크타임 누락", "Post_Lunch, Post_Dinner 등 구간 분석에 필요한 값입니다."],
+            ["시간값 누락", "배정/수락/배달/소요시간 중 빈 값이 있으면 행 단위 검수가 필요합니다."],
+            ["배달타입 정규화", "0은 단건배달, 멀티배달1~5는 멀티배달 계열로 집계합니다."],
           ].map(([title, body]) => (
             <div className="rounded-md border border-amber-200 bg-amber-50 p-3" key={title}>
               <strong className="text-sm text-amber-900">{title}</strong>
@@ -611,10 +619,12 @@ function AdminCoaching() {
             노출 {selectedMessage.visibleToRider ? "ON" : "OFF"}
           </button>
         </div>
-        <label className="mt-4 block">
+        <div className="mt-4">
           <span className="text-sm font-bold text-slate-700">자동 메시지</span>
-          <textarea className="mt-2 min-h-24 w-full rounded-md border border-slate-300 bg-slate-50 p-3 text-sm leading-6" readOnly value={selectedMessage.autoMessage} />
-        </label>
+          <div className="mt-2 min-h-40 rounded-md border border-slate-300 bg-slate-50 p-3 text-sm leading-6 text-slate-700">
+            {selectedMessage.autoMessage}
+          </div>
+        </div>
         <label className="mt-3 block">
           <span className="text-sm font-bold text-slate-700">관리자 수정 메시지</span>
           <textarea
@@ -711,7 +721,7 @@ function RiderHome({ metric, latestWeekOrders }: { metric: RiderMetric; latestWe
       <div className="grid grid-cols-2 gap-3">
         <StatTile label="완료" value={`${metric.completedCount}건`} caption={`${metric.activeDays}일 활동`} tone="blue" />
         <StatTile label="점수" value={`${metric.dispatchScore}점`} caption={metric.grade} tone="good" />
-        <StatTile label="예상 정산" value={formatWon(metric.expectedSettlement)} caption="mock 합계" />
+        <StatTile label="예상 정산" value={formatWon(metric.expectedSettlement)} caption="업로드 데이터 합계" />
         <StatTile label="주간 거리" value={`${metric.distanceKm}km`} caption="배달거리 합계" />
       </div>
       <Panel>
@@ -762,7 +772,10 @@ function RiderMap({ latestWeekOrders }: { latestWeekOrders: OrderRecord[] }) {
 
 function RiderCoachingContent({ metric, message, preview = false }: { metric: RiderMetric; message?: CoachingMessage; preview?: boolean }) {
   const segmentMax = Math.max(...segments.map((segment) => metric.segmentCompleted[segment]));
-  const deliveryMax = Math.max(...deliveryTypes.map((type) => metric.deliveryTypeCompleted[type]));
+  const multiCompleted = multiDeliveryTypes.reduce((sum, type) => sum + metric.deliveryTypeCompleted[type], 0);
+  const singleCompleted = metric.deliveryTypeCompleted["단건"];
+  const needReviewCompleted = metric.deliveryTypeCompleted["확인필요"];
+  const deliveryMax = Math.max(singleCompleted, multiCompleted, needReviewCompleted);
   const weekdayMax = Math.max(...Object.values(metric.weekdayCompleted));
   const visibleMessage = message?.visibleToRider ? message.customMessage || message.autoMessage : "관리자가 아직 이번 주 코칭 메시지를 노출하지 않았습니다.";
 
@@ -798,12 +811,22 @@ function RiderCoachingContent({ metric, message, preview = false }: { metric: Ri
       </Panel>
 
       <Panel>
-        <h2 className="text-lg font-black">배달타입 / 멀티</h2>
-        <p className="mt-1 text-sm font-bold text-slate-500">멀티율 {formatRate(metric.multiRate)}</p>
+        <h2 className="text-lg font-black">배달타입 / 멀티배달</h2>
+        <p className="mt-1 text-sm font-bold text-slate-500">멀티배달 계열 {formatNumber(multiCompleted)}건 · 멀티비율 {formatRate(metric.multiRate)}</p>
         <div className="mt-4 space-y-4">
-          {deliveryTypes.map((type) => (
-            <BarRow key={type} label={type} value={metric.deliveryTypeCompleted[type]} max={deliveryMax} />
-          ))}
+          <BarRow label="멀티배달 계열" value={multiCompleted} max={deliveryMax} detail={`${formatNumber(multiCompleted)}건 · ${formatRate(metric.multiRate)}`} />
+          <BarRow label="단건배달" value={singleCompleted} max={deliveryMax} />
+          <BarRow label="확인 필요" value={needReviewCompleted} max={deliveryMax} />
+        </div>
+        <div className="mt-4 rounded-md bg-slate-50 p-3">
+          <p className="text-xs font-black text-slate-500">멀티배달 세부</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {multiDeliveryTypes.map((type) => (
+              <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-600" key={type}>
+                {type} {formatNumber(metric.deliveryTypeCompleted[type])}건
+              </span>
+            ))}
+          </div>
         </div>
       </Panel>
 
