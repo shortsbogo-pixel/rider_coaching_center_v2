@@ -1,0 +1,20 @@
+﻿node_modules/
+.next/
+dist/
+build/
+.env
+.env.local
+uploads/
+*.log
+.DS_Store
+Thumbs.db
+
+# Codex 분석 압축파일은 채팅 업로드용이므로 Git에는 올리지 않음
+codex_analysis_docs.zip
+
+# 민감하거나 용량 큰 참고자료
+_ver1_reference/*.zip
+_sample_excel/**/*.xlsx
+_sample_excel/**/*.xls
+_sample_excel/**/*.xlsm
+_sample_excel/**/*.csv

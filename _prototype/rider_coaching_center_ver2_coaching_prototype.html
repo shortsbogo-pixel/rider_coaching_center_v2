@@ -1,0 +1,1945 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>라이더코칭센터 · 주간 오더 운영 대시보드 프로토타입</title>
+  <style>
+    :root {
+      --bg: #eef2f7;
+      --surface: #ffffff;
+      --surface-2: #f8fafc;
+      --ink: #111827;
+      --muted: #667085;
+      --soft: #98a2b3;
+      --line: #e4e7ec;
+      --primary: #2563eb;
+      --primary-2: #1d4ed8;
+      --primary-soft: #dbeafe;
+      --green: #12b76a;
+      --green-soft: #dcfae6;
+      --orange: #f79009;
+      --orange-soft: #fff4e5;
+      --red: #f04438;
+      --red-soft: #fee4e2;
+      --purple: #7c3aed;
+      --purple-soft: #ede9fe;
+      --yellow: #eaaa08;
+      --yellow-soft: #fef7c3;
+      --shadow: 0 18px 50px rgba(16, 24, 40, 0.12);
+      --shadow-sm: 0 8px 24px rgba(16, 24, 40, 0.08);
+      --radius: 24px;
+      --radius-sm: 16px;
+      --phone-w: 430px;
+      --nav-h: 74px;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Apple SD Gothic Neo", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(37, 99, 235, .12), transparent 34%),
+        radial-gradient(circle at 90% 12%, rgba(124, 58, 237, .10), transparent 35%),
+        var(--bg);
+      letter-spacing: -0.025em;
+    }
+
+    button, input, select, textarea { font-family: inherit; letter-spacing: inherit; }
+    button { cursor: pointer; }
+    .prototype-root {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
+      gap: 22px;
+      padding: 28px;
+      align-items: start;
+    }
+
+    .prototype-sidebar {
+      position: sticky;
+      top: 28px;
+      border-radius: 28px;
+      background: rgba(255, 255, 255, .78);
+      backdrop-filter: blur(18px);
+      border: 1px solid rgba(255,255,255,.84);
+      box-shadow: var(--shadow-sm);
+      padding: 20px;
+      min-height: calc(100vh - 56px);
+    }
+    .brand-block { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+    .brand-mark {
+      width: 44px; height: 44px; border-radius: 16px;
+      display: grid; place-items: center;
+      color: #fff; font-weight: 900;
+      background: linear-gradient(135deg, var(--primary), var(--purple));
+      box-shadow: 0 10px 30px rgba(37,99,235,.24);
+    }
+    .brand-block h1 { margin: 0; font-size: 17px; line-height: 1.2; }
+    .brand-block p { margin: 3px 0 0; color: var(--muted); font-size: 12px; line-height: 1.35; }
+    .sidebar-note {
+      border: 1px solid var(--line); background: var(--surface-2); border-radius: 18px;
+      padding: 12px; color: var(--muted); font-size: 12px; line-height: 1.55; margin-bottom: 16px;
+    }
+    .nav-group-title { font-size: 11px; color: var(--soft); font-weight: 800; margin: 18px 6px 8px; text-transform: uppercase; letter-spacing: .08em; }
+    .screen-nav { display: grid; gap: 7px; }
+    .screen-nav button {
+      width: 100%; border: 0; background: transparent; display: flex; align-items: center; justify-content: space-between;
+      color: var(--muted); font-weight: 700; padding: 10px 11px; border-radius: 14px; text-align: left;
+      transition: background .16s ease, color .16s ease, transform .16s ease;
+    }
+    .screen-nav button:hover { background: rgba(37,99,235,.07); color: var(--primary); transform: translateX(2px); }
+    .screen-nav button.active { background: var(--primary-soft); color: var(--primary-2); }
+    .screen-nav small { color: var(--soft); font-size: 10px; font-weight: 800; }
+    .demo-switch {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 6px; background: #edf2f7; border-radius: 16px; margin: 10px 0 14px;
+    }
+    .demo-switch button { border: 0; border-radius: 12px; padding: 9px 10px; background: transparent; color: var(--muted); font-weight: 900; }
+    .demo-switch button.active { color: #fff; background: var(--ink); box-shadow: 0 8px 18px rgba(17,24,39,.16); }
+    .handoff-card {
+      margin-top: 18px; background: #101828; color: #fff; border-radius: 20px; padding: 15px;
+      box-shadow: 0 18px 40px rgba(16,24,40,.16);
+    }
+    .handoff-card b { display: block; font-size: 13px; margin-bottom: 6px; }
+    .handoff-card span { display: block; color: #cbd5e1; font-size: 12px; line-height: 1.45; }
+
+    .phone-stage { display: flex; justify-content: center; width: 100%; }
+    .phone {
+      width: min(var(--phone-w), 100%);
+      min-height: 860px;
+      max-height: calc(100vh - 56px);
+      overflow: hidden;
+      border-radius: 42px;
+      background: var(--surface-2);
+      box-shadow: var(--shadow);
+      border: 10px solid #111827;
+      position: sticky;
+      top: 28px;
+      display: flex;
+      flex-direction: column;
+    }
+    .phone::before {
+      content: "";
+      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+      width: 108px; height: 29px; border-radius: 999px; background: #111827; z-index: 50;
+    }
+    .mobile-app {
+      height: 100%; min-height: 0; overflow: hidden; border-radius: 31px; background: var(--surface-2);
+      display: flex; flex-direction: column; position: relative;
+    }
+    .statusbar {
+      height: 44px; display: flex; align-items: end; justify-content: space-between; padding: 0 24px 8px; font-size: 12px; font-weight: 800; color: #101828;
+      flex: 0 0 auto;
+    }
+    .phone-shell-header {
+      flex: 0 0 auto;
+      background: rgba(248,250,252,.92); backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(228,231,236,.82);
+      padding: 8px 16px 12px;
+      position: relative;
+      z-index: 20;
+    }
+    .top-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .title-wrap { min-width: 0; }
+    .eyebrow { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 800; margin-bottom: 3px; }
+    .screen-title { margin: 0; font-size: 21px; line-height: 1.18; font-weight: 950; color: #101828; }
+    .screen-subtitle { margin: 5px 0 0; color: var(--muted); font-size: 12px; line-height: 1.35; }
+    .role-chip, .status-chip, .mini-chip {
+      display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+      border-radius: 999px; font-size: 11px; font-weight: 900; padding: 6px 9px;
+      white-space: nowrap;
+    }
+    .role-chip { background: #101828; color: #fff; }
+    .mini-chip { background: #eef2ff; color: #3538cd; border: 1px solid #c7d7fe; }
+    .status-chip.done { background: var(--green-soft); color: #067647; }
+    .status-chip.progress { background: var(--primary-soft); color: var(--primary-2); }
+    .status-chip.cancel { background: var(--red-soft); color: #b42318; }
+    .status-chip.delay { background: var(--orange-soft); color: #b54708; }
+    .status-chip.wait { background: var(--yellow-soft); color: #854a0e; }
+    .status-chip.inactive { background: #f2f4f7; color: #475467; }
+    .icon-btn {
+      width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 14px; background: #fff; display: grid; place-items: center;
+      box-shadow: 0 4px 12px rgba(16,24,40,.04); color: #101828; font-weight: 900;
+    }
+    .screen-body {
+      flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px 14px calc(var(--nav-h) + 18px + var(--safe-bottom));
+      scroll-behavior: smooth;
+    }
+    .screen-body.no-bottom { padding-bottom: 20px; }
+    .bottom-nav {
+      position: absolute; left: 0; right: 0; bottom: 0; z-index: 30;
+      padding: 8px 14px calc(9px + var(--safe-bottom));
+      background: rgba(255,255,255,.88); backdrop-filter: blur(20px);
+      border-top: 1px solid rgba(228,231,236,.88);
+      display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
+    }
+    .bottom-nav button {
+      border: 0; background: transparent; border-radius: 15px; color: var(--muted); font-size: 10px; font-weight: 900;
+      display: grid; place-items: center; gap: 3px; padding: 8px 4px;
+    }
+    .bottom-nav button span { font-size: 18px; line-height: 1; }
+    .bottom-nav button.active { background: var(--primary-soft); color: var(--primary-2); }
+
+    .screen { display: none; animation: lift .18s ease-out; }
+    .screen.active { display: block; }
+    @keyframes lift { from { transform: translateY(5px); opacity: .6; } to { transform: none; opacity: 1; } }
+
+    .auth-screen { min-height: 690px; display: flex; flex-direction: column; justify-content: center; }
+    .auth-hero {
+      border-radius: 30px;
+      padding: 22px;
+      color: #fff;
+      background:
+        radial-gradient(circle at 88% 14%, rgba(255,255,255,.25), transparent 24%),
+        linear-gradient(145deg, #0f172a, #1d4ed8 62%, #7c3aed);
+      box-shadow: 0 24px 40px rgba(29,78,216,.22);
+      margin-bottom: 14px;
+      overflow: hidden;
+      position: relative;
+    }
+    .auth-hero::after {
+      content: ""; position: absolute; right: -38px; bottom: -38px; width: 150px; height: 150px;
+      border: 22px solid rgba(255,255,255,.10); border-radius: 50%;
+    }
+    .auth-hero .logo-lg { width: 52px; height: 52px; border-radius: 18px; background: rgba(255,255,255,.16); display: grid; place-items: center; font-weight: 950; margin-bottom: 18px; }
+    .auth-hero h2 { margin: 0; font-size: 28px; line-height: 1.08; letter-spacing: -0.055em; }
+    .auth-hero p { margin: 10px 0 0; color: rgba(255,255,255,.78); font-size: 13px; line-height: 1.55; max-width: 270px; }
+    .auth-card, .card {
+      background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: 0 6px 20px rgba(16,24,40,.04);
+    }
+    .card { margin-bottom: 12px; }
+    .card.compact { padding: 13px; border-radius: 20px; }
+    .card-title-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .card h3, .card h4 { margin: 0; }
+    .card h3 { font-size: 16px; line-height: 1.25; }
+    .card h4 { font-size: 14px; line-height: 1.25; }
+    .card-desc { color: var(--muted); margin: 5px 0 0; font-size: 12px; line-height: 1.45; }
+    .form-grid { display: grid; gap: 10px; }
+    .field { display: grid; gap: 6px; }
+    .field label { color: var(--muted); font-size: 11px; font-weight: 900; }
+    .field input, .field select, .field textarea {
+      width: 100%; border: 1px solid #d0d5dd; background: #fff; border-radius: 15px; padding: 13px 13px;
+      font-size: 14px; color: #101828; outline: none; transition: border .16s ease, box-shadow .16s ease;
+    }
+    .field textarea { min-height: 88px; resize: vertical; }
+    .field input:focus, .field select:focus, .field textarea:focus { border-color: #84a9ff; box-shadow: 0 0 0 4px rgba(37,99,235,.12); }
+    .form-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btn {
+      width: 100%; border: 0; border-radius: 16px; padding: 13px 14px; background: var(--primary); color: #fff; font-weight: 950; font-size: 14px;
+      box-shadow: 0 12px 22px rgba(37,99,235,.20); display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn.secondary { background: #101828; box-shadow: 0 12px 22px rgba(16,24,40,.16); }
+    .btn.ghost { background: #fff; color: #344054; border: 1px solid var(--line); box-shadow: none; }
+    .btn.soft { background: var(--primary-soft); color: var(--primary-2); box-shadow: none; }
+    .btn.danger { background: var(--red); box-shadow: 0 12px 22px rgba(240,68,56,.18); }
+    .btn-row { display: flex; gap: 9px; align-items: center; }
+    .text-link { border: 0; background: transparent; color: var(--primary-2); font-weight: 900; padding: 0; }
+    .auth-links { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-top: 12px; color: var(--muted); font-size: 12px; }
+    .segment {
+      display: grid; grid-template-columns: repeat(2, 1fr); background: #f2f4f7; padding: 5px; border-radius: 16px; gap: 5px;
+    }
+    .segment.three { grid-template-columns: repeat(3, 1fr); }
+    .segment button {
+      border: 0; background: transparent; color: var(--muted); font-size: 12px; font-weight: 950; padding: 9px 8px; border-radius: 12px;
+    }
+    .segment button.active { background: #fff; color: #101828; box-shadow: 0 4px 12px rgba(16,24,40,.08); }
+
+    .filter-strip { display: flex; gap: 8px; overflow-x: auto; padding: 1px 0 12px; scrollbar-width: none; }
+    .filter-strip::-webkit-scrollbar { display: none; }
+    .filter-chip {
+      flex: 0 0 auto; border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 9px 11px;
+      color: #344054; font-size: 12px; font-weight: 900; box-shadow: 0 4px 10px rgba(16,24,40,.03);
+    }
+    .filter-chip.active { background: #101828; color: #fff; border-color: #101828; }
+
+    .kpi-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+    .kpi-grid .kpi-card:first-child { grid-column: 1 / -1; }
+    .kpi-card {
+      border: 1px solid var(--line); border-radius: 22px; background: #fff; padding: 14px;
+      box-shadow: 0 6px 18px rgba(16,24,40,.04); min-height: 103px; position: relative; overflow: hidden;
+    }
+    .kpi-card::after { content: ""; position: absolute; right: -30px; top: -32px; width: 88px; height: 88px; border-radius: 50%; background: rgba(37,99,235,.09); }
+    .kpi-card.done::after { background: rgba(18,183,106,.12); }
+    .kpi-card.progress::after { background: rgba(37,99,235,.10); }
+    .kpi-card.cancel::after { background: rgba(240,68,56,.10); }
+    .kpi-card.rider::after { background: rgba(124,58,237,.11); }
+    .kpi-card button, .click-card { cursor: pointer; }
+    .kpi-label { color: var(--muted); font-size: 12px; font-weight: 900; margin-bottom: 8px; display: flex; justify-content: space-between; gap: 6px; }
+    .kpi-number { font-size: 32px; line-height: 1; font-weight: 950; letter-spacing: -0.055em; }
+    .kpi-meta { margin-top: 9px; color: var(--muted); font-size: 11px; font-weight: 700; }
+    .trend-up { color: #067647; font-weight: 950; }
+    .trend-down { color: #b42318; font-weight: 950; }
+
+    .status-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .status-mini { border: 1px solid var(--line); border-radius: 16px; padding: 10px 7px; background: #fff; text-align: center; }
+    .status-mini strong { display: block; font-size: 17px; line-height: 1; margin-bottom: 5px; }
+    .status-mini span { font-size: 10px; color: var(--muted); font-weight: 900; }
+
+    .rank-list, .order-list, .account-list, .schema-list { display: grid; gap: 9px; }
+    .rank-item, .order-item, .account-item, .schema-item {
+      border: 1px solid var(--line); background: #fff; border-radius: 18px; padding: 12px; display: flex; align-items: center; gap: 11px;
+    }
+    .avatar {
+      flex: 0 0 auto; width: 42px; height: 42px; border-radius: 15px; background: var(--primary-soft); color: var(--primary-2); font-weight: 950; display: grid; place-items: center;
+    }
+    .avatar.green { background: var(--green-soft); color: #067647; }
+    .avatar.purple { background: var(--purple-soft); color: #5b21b6; }
+    .avatar.red { background: var(--red-soft); color: #b42318; }
+    .item-main { flex: 1 1 auto; min-width: 0; }
+    .item-main strong { display: block; font-size: 13px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .item-main span { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .item-side { flex: 0 0 auto; text-align: right; }
+    .item-side strong { display: block; font-size: 18px; line-height: 1; }
+    .item-side span { display: block; color: var(--muted); font-size: 10px; font-weight: 800; margin-top: 4px; }
+
+    .bar-list { display: grid; gap: 12px; }
+    .bar-row { display: grid; grid-template-columns: 54px 1fr 34px; align-items: center; gap: 9px; font-size: 12px; font-weight: 850; color: #344054; }
+    .bar-track { height: 10px; border-radius: 999px; background: #eef2f7; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--primary), #60a5fa); }
+    .bar-fill.green { background: linear-gradient(90deg, #12b76a, #6ee7b7); }
+    .bar-fill.orange { background: linear-gradient(90deg, #f79009, #fbbf24); }
+    .bar-fill.purple { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
+
+    .map-shell {
+      border: 1px solid #d9e2ef; border-radius: 26px; overflow: hidden; background: #e9eef5; position: relative; min-height: 290px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.5);
+    }
+    .map-shell.tall { min-height: 390px; }
+    .map-toolbar {
+      position: absolute; z-index: 7; top: 12px; left: 12px; right: 12px; display: flex; gap: 8px; align-items: center; justify-content: space-between;
+    }
+    .map-pill { border-radius: 999px; background: rgba(255,255,255,.92); backdrop-filter: blur(12px); border: 1px solid rgba(228,231,236,.88); padding: 8px 10px; font-size: 11px; font-weight: 950; color: #344054; box-shadow: 0 4px 14px rgba(16,24,40,.07); }
+    .map-canvas {
+      position: absolute; inset: 0;
+      background:
+        linear-gradient(38deg, rgba(255,255,255,.70) 1px, transparent 1px) 0 0/38px 38px,
+        linear-gradient(128deg, rgba(255,255,255,.62) 1px, transparent 1px) 0 0/46px 46px,
+        radial-gradient(circle at 26% 16%, rgba(37,99,235,.15), transparent 30%),
+        radial-gradient(circle at 86% 78%, rgba(18,183,106,.15), transparent 28%),
+        #e8eef6;
+    }
+    .map-area {
+      position: absolute; border-radius: 999px; background: rgba(37,99,235,.05); border: 1px dashed rgba(37,99,235,.18);
+    }
+    .route-svg { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
+    .marker {
+      position: absolute; z-index: 5; transform: translate(-50%, -50%);
+      width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 12px; font-weight: 950;
+      border: 3px solid #fff; box-shadow: 0 8px 20px rgba(16,24,40,.22); transition: transform .16s ease, box-shadow .16s ease;
+    }
+    .marker.pickup { background: var(--primary); }
+    .marker.dropoff { background: var(--green); }
+    .marker.cancel { background: var(--red); }
+    .marker.delay { background: var(--orange); }
+    .marker.focused { transform: translate(-50%, -50%) scale(1.25); box-shadow: 0 0 0 7px rgba(37,99,235,.18), 0 12px 26px rgba(16,24,40,.26); z-index: 6; }
+    .map-bottom-card {
+      position: absolute; z-index: 7; left: 12px; right: 12px; bottom: 12px; border-radius: 20px; background: rgba(255,255,255,.94); backdrop-filter: blur(12px); border: 1px solid rgba(228,231,236,.9);
+      padding: 12px; box-shadow: 0 12px 28px rgba(16,24,40,.12);
+    }
+    .map-legend { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .legend-dot { display: inline-flex; gap: 5px; align-items: center; color: var(--muted); font-size: 10px; font-weight: 850; }
+    .legend-dot::before { content:""; width: 8px; height: 8px; border-radius: 50%; background: var(--primary); }
+    .legend-dot.green::before { background: var(--green); }
+    .legend-dot.red::before { background: var(--red); }
+    .legend-dot.orange::before { background: var(--orange); }
+
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .detail-cell { border: 1px solid var(--line); border-radius: 17px; background: #fff; padding: 12px; }
+    .detail-cell span { display: block; color: var(--muted); font-size: 11px; font-weight: 900; margin-bottom: 5px; }
+    .detail-cell strong { display: block; font-size: 15px; line-height: 1.3; }
+    .timeline { display: grid; gap: 0; margin-top: 5px; }
+    .timeline-item { display: grid; grid-template-columns: 22px 1fr; gap: 8px; padding-bottom: 14px; position: relative; }
+    .timeline-item:not(:last-child)::after { content:""; position: absolute; left: 10px; top: 20px; bottom: 0; width: 2px; background: var(--line); }
+    .timeline-dot { width: 20px; height: 20px; border-radius: 50%; background: var(--primary); border: 4px solid var(--primary-soft); z-index: 1; }
+    .timeline-dot.green { background: var(--green); border-color: var(--green-soft); }
+    .timeline-dot.orange { background: var(--orange); border-color: var(--orange-soft); }
+    .timeline-text strong { font-size: 12px; display: block; }
+    .timeline-text span { color: var(--muted); font-size: 11px; display: block; margin-top: 3px; }
+
+    .upload-zone {
+      border: 1.7px dashed #98a2b3; background: #f8fafc; border-radius: 24px; min-height: 186px;
+      display: grid; place-items: center; text-align: center; padding: 24px;
+    }
+    .upload-icon { width: 58px; height: 58px; border-radius: 22px; background: var(--primary-soft); color: var(--primary-2); display: grid; place-items: center; font-size: 26px; margin: 0 auto 12px; }
+    .upload-zone strong { display: block; font-size: 16px; margin-bottom: 5px; }
+    .upload-zone span { display: block; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .mapping-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .map-field { border: 1px solid var(--line); border-radius: 14px; padding: 9px; background: #fff; }
+    .map-field code { display: block; font-size: 11px; color: #101828; font-weight: 900; word-break: break-word; }
+    .map-field span { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; line-height: 1.3; }
+    .error-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    .error-tile { border-radius: 18px; padding: 13px; background: #fff; border: 1px solid var(--line); }
+    .error-tile strong { display: block; font-size: 22px; line-height: 1; margin-bottom: 6px; }
+    .error-tile span { display: block; color: var(--muted); font-size: 11px; font-weight: 850; }
+    .error-tile.warn { background: var(--orange-soft); border-color: #fedf89; }
+    .error-tile.bad { background: var(--red-soft); border-color: #fecdca; }
+
+    .table-card { overflow: hidden; border-radius: 18px; border: 1px solid var(--line); background: #fff; }
+    .mini-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .mini-table th { color: var(--muted); background: #f8fafc; font-size: 10px; text-align: left; padding: 10px 8px; }
+    .mini-table td { border-top: 1px solid var(--line); padding: 10px 8px; color: #344054; font-weight: 750; }
+
+    .approval-graphic { height: 150px; border-radius: 26px; background: linear-gradient(145deg, #fef7c3, #fff); border: 1px solid #fde68a; display: grid; place-items: center; margin-bottom: 14px; position: relative; overflow: hidden; }
+    .approval-graphic::before, .approval-graphic::after { content:""; position:absolute; border-radius:50%; background: rgba(234,170,8,.16); }
+    .approval-graphic::before { width: 150px; height: 150px; top: -52px; right: -30px; }
+    .approval-graphic::after { width: 88px; height: 88px; left: 28px; bottom: -26px; }
+    .approval-graphic div { width: 68px; height: 68px; border-radius: 24px; background: #fff; display: grid; place-items: center; font-size: 34px; box-shadow: 0 16px 30px rgba(234,170,8,.16); z-index: 1; }
+
+    .system-diagram { display: grid; gap: 12px; }
+    .diagram-row { display: grid; grid-template-columns: 1fr 30px 1fr; align-items: stretch; gap: 8px; }
+    .diagram-card { border: 1px solid var(--line); border-radius: 20px; background: #fff; padding: 13px; min-height: 88px; }
+    .diagram-card.dark { background: #101828; color: #fff; border-color: #101828; }
+    .diagram-card.blue { background: var(--primary-soft); border-color: #bfdbfe; }
+    .diagram-card.green { background: var(--green-soft); border-color: #abefc6; }
+    .diagram-card.purple { background: var(--purple-soft); border-color: #ddd6fe; }
+    .diagram-card.orange { background: var(--orange-soft); border-color: #fedf89; }
+    .diagram-card strong { display: block; font-size: 13px; margin-bottom: 6px; }
+    .diagram-card span { color: var(--muted); font-size: 11px; line-height: 1.38; display: block; }
+    .diagram-card.dark span { color: #cbd5e1; }
+    .arrow { display: grid; place-items: center; color: var(--soft); font-weight: 950; }
+    .component-code {
+      border-radius: 18px; background: #0f172a; color: #e2e8f0; padding: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; line-height: 1.65; overflow-x: auto;
+    }
+    .schema-item { align-items: flex-start; }
+    .schema-item code { color: var(--primary-2); font-size: 12px; font-weight: 950; }
+    .schema-item span { white-space: normal; }
+
+    .data-guard { border-radius: 18px; background: #f0f9ff; border: 1px solid #b9e6fe; padding: 13px; display: flex; gap: 10px; align-items: flex-start; }
+    .data-guard b { display: block; color: #026aa2; font-size: 13px; margin-bottom: 4px; }
+    .data-guard span { color: #075985; font-size: 11px; line-height: 1.45; }
+    .role-only-admin, .role-only-rider { display: none; }
+    body[data-role="admin"] .role-only-admin { display: initial; }
+    body[data-role="rider"] .role-only-rider { display: initial; }
+
+    .drawer-overlay {
+      position: absolute; inset: 0; z-index: 70; background: rgba(16,24,40,.28); display: none; align-items: end;
+    }
+    .drawer-overlay.open { display: flex; }
+    .drawer {
+      width: 100%; background: #fff; border-radius: 28px 28px 0 0; padding: 16px; max-height: 78%; overflow-y: auto;
+      box-shadow: 0 -18px 44px rgba(16,24,40,.18); animation: sheet .18s ease-out;
+    }
+    @keyframes sheet { from { transform: translateY(16px); opacity: .8; } to { transform: none; opacity: 1; } }
+
+    .toast {
+      position: absolute; left: 16px; right: 16px; bottom: 92px; z-index: 90; background: #101828; color: #fff; border-radius: 18px;
+      padding: 12px 14px; font-size: 12px; font-weight: 850; box-shadow: 0 16px 34px rgba(16,24,40,.22); display: none;
+    }
+    .toast.show { display: block; animation: lift .18s ease-out; }
+
+
+    .rider-hero-card {
+      border-radius: 28px;
+      padding: 18px;
+      color: #fff;
+      background:
+        radial-gradient(circle at 86% 16%, rgba(255,255,255,.20), transparent 30%),
+        linear-gradient(145deg, #101828, #1d4ed8 72%);
+      box-shadow: 0 18px 38px rgba(29,78,216,.18);
+      margin-bottom: 12px;
+      overflow: hidden;
+      position: relative;
+    }
+    .rider-hero-card h3 { margin: 0; font-size: 20px; line-height: 1.22; }
+    .rider-hero-card p { margin: 7px 0 0; color: rgba(255,255,255,.76); font-size: 12px; line-height: 1.45; }
+    .hero-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 15px; }
+    .hero-metric { border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.10); border-radius: 17px; padding: 11px; }
+    .hero-metric strong { display: block; font-size: 20px; line-height: 1; }
+    .hero-metric span { display: block; margin-top: 5px; color: rgba(255,255,255,.74); font-size: 10px; font-weight: 900; }
+
+    .rider-task-card { border-color: #bfdbfe; background: linear-gradient(180deg, #fff, #f8fbff); }
+    .task-route { display: grid; grid-template-columns: 20px 1fr; gap: 8px; margin: 10px 0 12px; }
+    .task-route-dot { width: 14px; height: 14px; border-radius: 50%; background: var(--primary); margin-top: 3px; box-shadow: 0 0 0 4px var(--primary-soft); }
+    .task-route-dot.green { background: var(--green); box-shadow: 0 0 0 4px var(--green-soft); }
+    .task-route-text strong { display:block; font-size: 12px; }
+    .task-route-text span { display:block; margin-top: 3px; color: var(--muted); font-size: 11px; line-height: 1.35; }
+    .action-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; }
+    .action-tile { border: 1px solid var(--line); border-radius: 18px; background: #fff; padding: 13px; text-align: left; color: inherit; box-shadow: 0 4px 14px rgba(16,24,40,.04); }
+    .action-tile strong { display: block; font-size: 13px; margin-bottom: 5px; }
+    .action-tile span { display: block; color: var(--muted); font-size: 11px; line-height: 1.35; }
+    .privacy-line { border-radius: 16px; padding: 10px 11px; background: #f8fafc; color: #475467; font-size: 11px; font-weight: 800; line-height: 1.4; }
+    .rider-list-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 9px; }
+    .settlement-band { border-radius: 22px; padding: 15px; background: #101828; color: #fff; display: grid; gap: 10px; }
+    .settlement-band strong { font-size: 28px; line-height: 1; }
+    .settlement-band span { color: #cbd5e1; font-size: 11px; font-weight: 800; }
+    .settlement-row { border: 1px solid var(--line); background: #fff; border-radius: 17px; padding: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .settlement-row strong { font-size: 13px; display: block; }
+    .settlement-row span { color: var(--muted); font-size: 11px; display: block; margin-top: 3px; }
+    .notice-list { display: grid; gap: 8px; }
+    .notice-item { border: 1px solid var(--line); border-radius: 17px; background: #fff; padding: 12px; display: flex; gap: 9px; align-items: flex-start; }
+    .notice-item b { font-size: 12px; display: block; margin-bottom: 4px; }
+    .notice-item span { color: var(--muted); font-size: 11px; line-height: 1.4; display: block; }
+    .scope-badge { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 7px 10px; background: #ecfdf3; color: #067647; font-size: 11px; font-weight: 950; border: 1px solid #abefc6; }
+
+
+
+    /* Ver.2 Coaching Insight add-on */
+    .select-card {
+      padding: 16px;
+      border-radius: 22px;
+      background: linear-gradient(180deg, #fff, #f8fafc);
+    }
+    .coach-select-grid { display: grid; gap: 12px; }
+    .coach-field label { display:block; font-size: 12px; color: #475467; font-weight: 900; margin-bottom: 8px; }
+    .coach-field select {
+      width:100%; min-height: 50px; border:1px solid #cbd5e1; border-radius: 14px; background:#fff; padding: 0 14px; font-size: 14px; font-weight: 800; color:#0f172a;
+      box-shadow: 0 1px 0 rgba(16,24,40,.03);
+    }
+    .coach-shell-title { margin: 0 0 8px; font-size: 21px; letter-spacing: -.04em; }
+    .coach-shell-subtitle { margin: 0 0 15px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .coach-kpi-grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; }
+    .coach-mini-card {
+      border:1px solid #dbe3ed; border-radius: 16px; background:#f8fbff; padding:13px; min-height:74px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.82);
+    }
+    .coach-mini-card span { display:block; color:#475467; font-size:11px; font-weight:900; margin-bottom:6px; }
+    .coach-mini-card strong { display:block; font-size:20px; line-height:1.05; letter-spacing:-.04em; }
+    .coach-mini-card.good { background:#ecfdf3; border-color:#abefc6; }
+    .coach-mini-card.warn { background:#fffbeb; border-color:#fde68a; }
+    .coach-mini-card.focus { background:#eef2ff; border-color:#c7d2fe; }
+    .accordion-stack { display:grid; gap:9px; }
+    details.coach-accordion {
+      border: 1px solid #dbe3ed; border-radius: 16px; background: #fff; overflow:hidden;
+      box-shadow: 0 6px 20px rgba(16,24,40,.04);
+    }
+    details.coach-accordion summary {
+      list-style:none; cursor:pointer; padding:14px 14px; display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:15px; font-weight:950;
+      background: linear-gradient(180deg,#fff,#f8fafc);
+    }
+    details.coach-accordion summary::-webkit-details-marker { display:none; }
+    details.coach-accordion summary .summary-left { display:flex; align-items:center; gap:9px; min-width:0; }
+    details.coach-accordion summary .summary-icon { color:#64748b; font-size:17px; }
+    details.coach-accordion summary::after { content:'⌄'; color:#64748b; font-size:18px; transition: transform .18s ease; }
+    details.coach-accordion[open] summary::after { transform: rotate(180deg); }
+    .coach-accordion-body { padding: 12px; border-top:1px solid #e5e7eb; display:grid; gap:10px; }
+    .coach-detail-grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; }
+    .coach-detail-tile { border:1px solid #dbe3ed; border-radius:15px; padding:13px; background:#f8fbff; }
+    .coach-detail-tile span { display:block; font-size:11px; color:#64748b; font-weight:900; margin-bottom:6px; }
+    .coach-detail-tile strong { font-size:20px; letter-spacing:-.04em; }
+    .insight-row-card { border:1px solid #dbe3ed; border-radius:15px; background:#fff; padding:12px; }
+    .insight-row-card.good { background:#f0fdf4; border-color:#bbf7d0; }
+    .insight-row-card.warn { background:#fffbeb; border-color:#fde68a; }
+    .insight-row-top { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:9px; }
+    .insight-row-top strong { font-size:15px; }
+    .insight-row-meta { display:flex; align-items:center; gap:6px; color:#475467; font-size:12px; font-weight:950; white-space:nowrap; }
+    .coach-badge { display:inline-flex; align-items:center; height:24px; padding:0 9px; border-radius:999px; background:#eef2ff; color:#334155; font-size:11px; font-weight:950; }
+    .coach-badge.good { background:#dcfce7; color:#166534; }
+    .coach-badge.warn { background:#fef3c7; color:#92400e; }
+    .insight-progress { height:10px; border-radius:999px; background:#e8eef5; overflow:hidden; }
+    .insight-progress span { display:block; height:100%; width:var(--w,0%); border-radius:999px; background:linear-gradient(90deg,#0ea5e9,#14b8a6); }
+    .insight-row-card.warn .insight-progress span { background:linear-gradient(90deg,#f59e0b,#fbbf24); }
+    .score-panel {
+      border-radius: 24px; padding:18px; color:#fff; background:
+        radial-gradient(circle at 84% 28%, rgba(255,255,255,.24), transparent 32%),
+        linear-gradient(135deg, #0f172a 0%, #0f766e 100%);
+      display:grid; grid-template-columns: 1fr auto; gap:14px; align-items:center; box-shadow:0 18px 36px rgba(15,118,110,.18);
+    }
+    .score-panel h3 { margin:0 0 6px; font-size:15px; color:rgba(255,255,255,.82); }
+    .score-panel strong { display:block; font-size:24px; line-height:1.08; letter-spacing:-.05em; }
+    .score-panel p { margin:5px 0 0; color:rgba(255,255,255,.72); font-size:12px; line-height:1.4; }
+    .score-ring {
+      --pct: 61%; width:116px; height:116px; border-radius:50%; display:grid; place-items:center; position:relative;
+      background: conic-gradient(#fff var(--pct), rgba(255,255,255,.20) 0);
+    }
+    .score-ring::before { content:''; width:78px; height:78px; border-radius:50%; background:#123457; position:absolute; box-shadow: inset 0 0 0 1px rgba(255,255,255,.09); }
+    .score-ring span { position:relative; z-index:1; display:grid; place-items:center; font-size:28px; font-weight:950; line-height:1; }
+    .score-ring small { display:block; font-size:11px; font-weight:900; margin-top:3px; color:rgba(255,255,255,.75); }
+    .coach-pill-list { display:flex; flex-wrap:wrap; gap:8px; }
+    .coach-pill { display:inline-flex; align-items:center; min-height:28px; padding:7px 10px; border-radius:999px; background:#ecfdf3; color:#047857; font-size:11px; font-weight:950; line-height:1.25; }
+    .coach-pill.warn { background:#fffbeb; color:#92400e; }
+    .coach-message-card { border-color:#dbe3ed; background:linear-gradient(180deg,#fff,#f8fafc); }
+    .coach-message-card p { color:#475467; font-size:13px; line-height:1.58; margin:0; }
+    .coach-message-card p + p { margin-top:10px; }
+    .coach-card-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; }
+    .coach-summary-band { border-radius: 22px; padding:14px; background: #f0fdfa; border: 1px solid #99f6e4; display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .coach-summary-band strong { display:block; font-size:14px; }
+    .coach-summary-band span { display:block; color:#0f766e; font-size:11px; font-weight:850; margin-top:3px; }
+
+    @media (max-width: 880px) {
+      .prototype-root { display: block; padding: 0; background: var(--surface-2); }
+      .prototype-sidebar { display: none; }
+      .phone-stage { display: block; }
+      .phone { width: 100%; max-height: none; min-height: 100vh; border: 0; border-radius: 0; box-shadow: none; position: static; }
+      .phone::before { display: none; }
+      .mobile-app { border-radius: 0; min-height: 100vh; }
+    }
+
+    @media (max-width: 360px) {
+      .screen-title { font-size: 19px; }
+      .kpi-number { font-size: 28px; }
+      .detail-grid, .mapping-grid, .error-grid { grid-template-columns: 1fr; }
+      .status-grid { grid-template-columns: repeat(2, 1fr); }
+      .diagram-row { grid-template-columns: 1fr; }
+      .arrow { transform: rotate(90deg); min-height: 16px; }
+    }
+  </style>
+</head>
+<body data-role="admin">
+  <div class="prototype-root">
+    <aside class="prototype-sidebar">
+      <div class="brand-block">
+        <div class="brand-mark">RC</div>
+        <div>
+          <h1>Rider Coaching Center</h1>
+          <p>모바일 우선 주간 오더 운영 프로토타입</p>
+        </div>
+      </div>
+      <div class="sidebar-note">
+        로그인/회원가입부터 엑셀 업로드, 주간 대시보드, 지도 3종, 관리자 계정 관리, 라이더 전용 화면까지 연결한 단일 HTML 프로토타입입니다.
+      </div>
+      <div class="demo-switch">
+        <button class="active" data-switch-role="admin">관리자</button>
+        <button data-switch-role="rider">라이더</button>
+      </div>
+      <div class="nav-group-title" data-nav-title="auth">Auth flow</div>
+      <div class="screen-nav" id="authNav"></div>
+      <div class="nav-group-title" data-nav-title="admin">Admin screens</div>
+      <div class="screen-nav" id="adminNav"></div>
+      <div class="nav-group-title" data-nav-title="rider">Rider screens</div>
+      <div class="screen-nav" id="riderNav"></div>
+      <div class="nav-group-title" data-nav-title="handoff">Handoff</div>
+      <div class="screen-nav" id="handoffNav"></div>
+      <div class="handoff-card">
+        <b>핵심 UX 원칙</b>
+        <span>주간 필터 → 카드 요약 → 목록 선택 → 지도 포커스 → 상세 확인 흐름으로 개발 단위를 분리했습니다.</span>
+      </div>
+    </aside>
+
+    <main class="phone-stage">
+      <div class="phone">
+        <div class="mobile-app" id="appShell">
+          <div class="statusbar"><span>09:41</span><span>5G · 100%</span></div>
+          <header class="phone-shell-header" id="appHeader">
+            <div class="top-row">
+              <div class="title-wrap">
+                <div class="eyebrow"><span id="screenEyebrow">Admin</span><span class="role-chip" id="roleChip">admin</span></div>
+                <h2 class="screen-title" id="screenTitle">주간 대시보드</h2>
+                <p class="screen-subtitle" id="screenSubtitle">수요일~다음주 화요일 기준 주간 운영 현황</p>
+              </div>
+              <button class="icon-btn" id="menuBtn" aria-label="메뉴">☰</button>
+            </div>
+          </header>
+
+          <section class="screen-body" id="screenBody">
+            <!-- Auth: Login -->
+            <div class="screen active" data-screen="login">
+              <div class="auth-screen">
+                <div class="auth-hero">
+                  <div class="logo-lg">RC</div>
+                  <h2>라이더 주간 오더를<br/>한 손에 관리하세요.</h2>
+                  <p>엑셀 업로드 기반으로 주차별 오더, 라이더, 지도, 오류 데이터를 카드형으로 확인합니다.</p>
+                </div>
+                <div class="auth-card">
+                  <div class="segment" id="loginRoleSegment">
+                    <button class="active" data-login-role="admin">관리자</button>
+                    <button data-login-role="rider">라이더</button>
+                  </div>
+                  <div class="form-grid" style="margin-top:12px;">
+                    <div class="field">
+                      <label>아이디</label>
+                      <input id="loginId" value="admin@rccenter.kr" placeholder="아이디 또는 이메일" />
+                    </div>
+                    <div class="field">
+                      <label>비밀번호</label>
+                      <input type="password" value="password123" placeholder="비밀번호" />
+                    </div>
+                    <button class="btn" id="loginSubmit">역할에 맞게 로그인</button>
+                  </div>
+                  <div class="auth-links">
+                    <button class="text-link" data-go="signup">회원가입</button>
+                    <button class="text-link" data-go="passwordReset">비밀번호 재설정</button>
+                  </div>
+                  <div class="auth-links" style="justify-content:center; margin-top:10px;">
+                    <button class="text-link" data-go="firstPassword">최초 비밀번호 설정</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Auth: Signup -->
+            <div class="screen" data-screen="signup">
+              <div class="auth-screen">
+                <div class="card">
+                  <div class="card-title-row">
+                    <div>
+                      <h3>회원가입</h3>
+                      <p class="card-desc">라이더는 가입 후 관리자 승인을 받아야 본인 데이터 조회가 가능합니다.</p>
+                    </div>
+                    <span class="status-chip wait">승인 필요</span>
+                  </div>
+                  <div class="form-grid">
+                    <div class="field"><label>이름</label><input placeholder="예: 김민준" /></div>
+                    <div class="field"><label>휴대폰</label><input placeholder="010-0000-0000" /></div>
+                    <div class="field"><label>아이디</label><input placeholder="rider001" /></div>
+                    <div class="field"><label>센터 코드</label><input value="RCC-SEOUL" /></div>
+                    <div class="field"><label>가입 역할</label><select><option>라이더</option><option>관리자 초대 계정</option></select></div>
+                    <button class="btn" data-go="approvalWait">가입 신청하기</button>
+                    <button class="btn ghost" data-go="login">로그인으로 돌아가기</button>
+                  </div>
+                </div>
+                <div class="data-guard" style="margin-top:12px;">
+                  <div>🔐</div><div><b>권한 기본값</b><span>신규 가입자는 account_status=승인대기, role=rider로 생성되며 관리자 승인 후 활성화됩니다.</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Auth: First password -->
+            <div class="screen" data-screen="firstPassword">
+              <div class="auth-screen">
+                <div class="card">
+                  <div class="card-title-row">
+                    <div>
+                      <h3>최초 비밀번호 설정</h3>
+                      <p class="card-desc">관리자가 생성한 라이더 계정은 최초 접속 시 비밀번호를 직접 설정합니다.</p>
+                    </div>
+                    <span class="mini-chip">초대 링크</span>
+                  </div>
+                  <div class="form-grid">
+                    <div class="field"><label>초대 토큰</label><input value="INV-RIDER-2026" /></div>
+                    <div class="field"><label>새 비밀번호</label><input type="password" placeholder="8자 이상" /></div>
+                    <div class="field"><label>비밀번호 확인</label><input type="password" /></div>
+                    <button class="btn" data-go="login">비밀번호 저장 후 로그인</button>
+                    <button class="btn ghost" data-go="passwordReset">토큰을 잃어버렸어요</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Auth: Password reset -->
+            <div class="screen" data-screen="passwordReset">
+              <div class="auth-screen">
+                <div class="card">
+                  <div class="card-title-row">
+                    <div>
+                      <h3>비밀번호 재설정</h3>
+                      <p class="card-desc">아이디/휴대폰 인증 후 재설정 링크를 발송하는 화면 구조입니다.</p>
+                    </div>
+                    <span class="mini-chip">인증</span>
+                  </div>
+                  <div class="form-grid">
+                    <div class="field"><label>아이디 또는 이메일</label><input placeholder="rider001" /></div>
+                    <div class="field"><label>휴대폰 번호</label><input placeholder="010-0000-0000" /></div>
+                    <button class="btn">재설정 링크 발송</button>
+                    <button class="btn ghost" data-go="login">로그인으로 돌아가기</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Auth: Approval wait -->
+            <div class="screen" data-screen="approvalWait">
+              <div class="auth-screen">
+                <div class="card">
+                  <div class="approval-graphic"><div>⏳</div></div>
+                  <div class="card-title-row">
+                    <div>
+                      <h3>관리자 승인 대기</h3>
+                      <p class="card-desc">가입 신청이 접수되었습니다. 관리자가 라이더 계정을 활성화하면 로그인할 수 있습니다.</p>
+                    </div>
+                    <span class="status-chip wait">승인대기</span>
+                  </div>
+                  <div class="detail-grid" style="margin:12px 0;">
+                    <div class="detail-cell"><span>role</span><strong>rider</strong></div>
+                    <div class="detail-cell"><span>account_status</span><strong>pending</strong></div>
+                  </div>
+                  <button class="btn" data-go="login">확인</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Admin: dashboard -->
+            <div class="screen" data-screen="adminDashboard">
+              <div class="filter-strip" aria-label="필터">
+                <button class="filter-chip active">2026-W22 · 5/27~6/2</button>
+                <button class="filter-chip" data-open-filter="rider">라이더 전체</button>
+                <button class="filter-chip" data-open-filter="status">상태 전체</button>
+                <button class="filter-chip" data-open-filter="time">시간대 전체</button>
+                <button class="filter-chip" data-open-filter="area">강남/서초</button>
+              </div>
+              <div class="kpi-grid">
+                <div class="kpi-card click-card" data-go="weeklyMap" data-kpi="all">
+                  <div class="kpi-label"><span>총 오더 수</span><span class="trend-up">+12%</span></div>
+                  <div class="kpi-number">1,284</div>
+                  <div class="kpi-meta">클릭 시 주간 전체맵/목록으로 이동</div>
+                </div>
+                <div class="kpi-card done click-card" data-go="weeklyMap" data-kpi="완료">
+                  <div class="kpi-label"><span>완료 수</span><span>완료율 83%</span></div>
+                  <div class="kpi-number">1,064</div>
+                  <div class="kpi-meta">완료 주문만 지도 표시</div>
+                </div>
+                <div class="kpi-card progress click-card" data-go="weeklyMap" data-kpi="진행중">
+                  <div class="kpi-label"><span>진행중 수</span><span>실시간</span></div>
+                  <div class="kpi-number">118</div>
+                  <div class="kpi-meta">현재 진행 콜 추적</div>
+                </div>
+                <div class="kpi-card cancel click-card" data-go="weeklyMap" data-kpi="취소">
+                  <div class="kpi-label"><span>취소 수</span><span class="trend-down">-3%</span></div>
+                  <div class="kpi-number">46</div>
+                  <div class="kpi-meta">취소 사유 분석으로 연결</div>
+                </div>
+                <div class="kpi-card rider click-card" data-go="accountManage">
+                  <div class="kpi-label"><span>라이더 수</span><span>활성 38</span></div>
+                  <div class="kpi-number">42</div>
+                  <div class="kpi-meta">계정 관리 화면으로 이동</div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title-row"><div><h3>상태 요약</h3><p class="card-desc">완료 / 진행중 / 취소 / 지연 현황</p></div><button class="text-link" data-go="weeklyMap">전체맵</button></div>
+                <div class="status-grid">
+                  <div class="status-mini"><strong>83%</strong><span>완료</span></div>
+                  <div class="status-mini"><strong>9%</strong><span>진행중</span></div>
+                  <div class="status-mini"><strong>4%</strong><span>취소</span></div>
+                  <div class="status-mini"><strong>3%</strong><span>지연</span></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title-row"><div><h3>완료 콜 수 상위 라이더</h3><p class="card-desc">라이더 클릭 시 라이더별 맵으로 이동</p></div><span class="mini-chip">랭킹</span></div>
+                <div class="rank-list" id="riderRanking"></div>
+              </div>
+
+              <div class="card">
+                <div class="card-title-row"><div><h3>라이더 코칭 인사이트</h3><p class="card-desc">Ver.1의 내 운행 인사이트를 관리자용 미리보기로 추가</p></div><button class="text-link" data-go="coachingInsight">코칭 보기</button></div>
+                <div class="coach-summary-band"><div><strong>김수환 · 배차 친화 점수 61점</strong><span>멀티율 81%, Post_Dinner 강점, Post_Lunch 보강 필요</span></div><span class="coach-badge warn">관리대상</span></div>
+              </div>
+
+              <div class="card">
+                <div class="card-title-row"><div><h3>시간대 분석</h3><p class="card-desc">피크 시간대와 지연 비율을 함께 표시</p></div><button class="text-link" data-open-filter="time">필터</button></div>
+                <div class="bar-list">
+                  <div class="bar-row"><span>09-12</span><div class="bar-track"><div class="bar-fill" style="width:64%"></div></div><span>312</span></div>
+                  <div class="bar-row"><span>12-15</span><div class="bar-track"><div class="bar-fill orange" style="width:82%"></div></div><span>428</span></div>
+                  <div class="bar-row"><span>15-18</span><div class="bar-track"><div class="bar-fill green" style="width:73%"></div></div><span>381</span></div>
+                  <div class="bar-row"><span>18-21</span><div class="bar-track"><div class="bar-fill purple" style="width:51%"></div></div><span>263</span></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title-row"><div><h3>지역 분석</h3><p class="card-desc">지역별 콜 집중도와 미매칭 감지</p></div><span class="mini-chip">강남권</span></div>
+                <div class="bar-list">
+                  <div class="bar-row"><span>강남</span><div class="bar-track"><div class="bar-fill" style="width:91%"></div></div><span>514</span></div>
+                  <div class="bar-row"><span>서초</span><div class="bar-track"><div class="bar-fill green" style="width:68%"></div></div><span>338</span></div>
+                  <div class="bar-row"><span>송파</span><div class="bar-track"><div class="bar-fill purple" style="width:49%"></div></div><span>206</span></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title-row"><div><h3>최근 오더</h3><p class="card-desc">카드 클릭 시 오더 상세맵으로 이동</p></div><button class="text-link" data-go="weeklyMap">지도 보기</button></div>
+                <div class="order-list" id="recentOrders"></div>
+              </div>
+
+              <div class="card">
+                <div class="card-title-row"><div><h3>업로드 결과 요약</h3><p class="card-desc">마지막 엑셀 업로드 상태</p></div><button class="text-link" data-go="uploadSummary">상세</button></div>
+                <div class="detail-grid">
+                  <div class="detail-cell"><span>업로드 행</span><strong>1,302</strong></div>
+                  <div class="detail-cell"><span>정상 반영</span><strong>1,284</strong></div>
+                  <div class="detail-cell"><span>라이더 매칭</span><strong>97.8%</strong></div>
+                  <div class="detail-cell"><span>좌표 보유</span><strong>96.9%</strong></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title-row"><div><h3>오류 / 미매칭 카드</h3><p class="card-desc">좌표·주소·라이더·상태 인식 오류</p></div><span class="status-chip delay">확인 필요</span></div>
+                <div class="error-grid">
+                  <div class="error-tile warn"><strong>18</strong><span>좌표 누락</span></div>
+                  <div class="error-tile warn"><strong>7</strong><span>주소 누락</span></div>
+                  <div class="error-tile bad"><strong>11</strong><span>라이더 미매칭</span></div>
+                  <div class="error-tile"><strong>3</strong><span>상태 미인식</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Admin: weekly map -->
+            <div class="screen" data-screen="weeklyMap">
+              <div class="filter-strip">
+                <button class="filter-chip active">주간 전체맵</button>
+                <button class="filter-chip">2026-W22</button>
+                <button class="filter-chip">상태: 전체</button>
+                <button class="filter-chip">지역: 강남/서초</button>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>주간 전체맵</h3><p class="card-desc">업로드된 주차 전체 주문의 픽업/도착/경로를 한 화면에서 확인합니다.</p></div><span class="mini-chip">Google Maps 예정</span></div>
+                <div class="map-shell tall" id="weeklyMapCanvas"></div>
+                <div class="map-legend"><span class="legend-dot">픽업</span><span class="legend-dot green">도착</span><span class="legend-dot orange">지연</span><span class="legend-dot red">취소</span></div>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>지도 포커스 목록</h3><p class="card-desc">카드 클릭 시 지도 중심 이동 → 오더 상세 이동 흐름</p></div></div>
+                <div class="order-list" id="weeklyMapOrders"></div>
+              </div>
+            </div>
+
+            <!-- Admin: rider detail -->
+            <div class="screen" data-screen="riderDetail">
+              <div class="card">
+                <div class="card-title-row">
+                  <div style="display:flex; align-items:center; gap:11px; min-width:0;">
+                    <div class="avatar purple" id="riderAvatar">김</div>
+                    <div class="item-main"><strong id="riderDetailName">김민준</strong><span id="riderDetailMeta">rider_id=r-001 · 활성</span></div>
+                  </div>
+                  <span class="status-chip done">활성</span>
+                </div>
+                <div class="detail-grid">
+                  <div class="detail-cell"><span>이번 주 완료</span><strong id="riderDoneCount">128콜</strong></div>
+                  <div class="detail-cell"><span>평균 소요</span><strong>22분</strong></div>
+                  <div class="detail-cell"><span>평균 거리</span><strong>3.8km</strong></div>
+                  <div class="detail-cell"><span>지연/취소</span><strong>4 / 1</strong></div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>라이더별 맵</h3><p class="card-desc">선택한 라이더의 픽업/도착/경로만 표시합니다.</p></div><span class="mini-chip">분리 뷰 ②</span></div>
+                <div class="map-shell tall" id="riderMapCanvas"></div>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>라이더 오더 목록</h3><p class="card-desc">오더 클릭 시 오더 상세맵으로 이동</p></div></div>
+                <div class="order-list" id="riderOrders"></div>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>추후 정산 확장 영역</h3><p class="card-desc">delivery_fee, distance_km, duration_min 기반 정산 카드로 확장 가능합니다.</p></div></div>
+                <div class="detail-grid">
+                  <div class="detail-cell"><span>예상 수수료 합계</span><strong>₩428,000</strong></div>
+                  <div class="detail-cell"><span>정산 상태</span><strong>확장 예정</strong></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Order detail -->
+            <div class="screen" data-screen="orderDetail">
+              <div class="card">
+                <div class="card-title-row">
+                  <div><h3 id="orderDetailTitle">ORD-10482</h3><p class="card-desc" id="orderDetailSub">오더 상세 정보와 상세맵</p></div>
+                  <span class="status-chip done" id="orderStatusChip">완료</span>
+                </div>
+                <div class="map-shell tall" id="orderMapCanvas"></div>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>오더 필드</h3><p class="card-desc">엑셀 업로드 데이터 구조를 상세 화면에 반영</p></div><span class="mini-chip">분리 뷰 ③</span></div>
+                <div class="detail-grid" id="orderDetailGrid"></div>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>진행 타임라인</h3><p class="card-desc">created_at → pickup → completed_at</p></div></div>
+                <div class="timeline" id="orderTimeline"></div>
+              </div>
+            </div>
+
+            <!-- Admin: upload -->
+            <div class="screen" data-screen="excelUpload">
+              <div class="card">
+                <div class="card-title-row"><div><h3>엑셀 업로드</h3><p class="card-desc">주간 기준: 수요일 시작, 다음주 화요일 종료</p></div><span class="mini-chip">.xlsx</span></div>
+                <div class="upload-zone" id="uploadZone">
+                  <div>
+                    <div class="upload-icon">⇧</div>
+                    <strong>주간 오더 엑셀 파일 업로드</strong>
+                    <span>파일 선택 또는 드래그 영역. 현재는 UI 프로토타입으로 업로드 결과를 더미 데이터로 표시합니다.</span>
+                  </div>
+                </div>
+                <div class="form-grid" style="margin-top:12px;">
+                  <div class="field"><label>업로드 주차</label><select><option>2026-W22 · 2026-05-27(수) ~ 2026-06-02(화)</option><option>2026-W21 · 2026-05-20(수) ~ 2026-05-26(화)</option></select></div>
+                  <div class="field"><label>중복 처리</label><select><option>order_id 기준 덮어쓰기</option><option>중복 제외</option><option>검토 후 반영</option></select></div>
+                  <button class="btn" data-go="uploadSummary">파싱 결과 확인</button>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>필수 매핑 필드</h3><p class="card-desc">주소는 사전 좌표화 저장 구조를 전제로 합니다.</p></div></div>
+                <div class="mapping-grid" id="mappingFields"></div>
+              </div>
+            </div>
+
+            <!-- Admin: upload summary -->
+            <div class="screen" data-screen="uploadSummary">
+              <div class="card">
+                <div class="card-title-row"><div><h3>업로드 결과 요약</h3><p class="card-desc">주차별 데이터 구분 및 오류 검토</p></div><span class="status-chip done">반영 가능</span></div>
+                <div class="detail-grid">
+                  <div class="detail-cell"><span>week_label</span><strong>2026-W22</strong></div>
+                  <div class="detail-cell"><span>기준 기간</span><strong>5/27 수 ~ 6/2 화</strong></div>
+                  <div class="detail-cell"><span>총 행</span><strong>1,302</strong></div>
+                  <div class="detail-cell"><span>정상 주문</span><strong>1,284</strong></div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>오류 / 미매칭</h3><p class="card-desc">정상 반영 전 확인해야 할 데이터 품질 이슈</p></div></div>
+                <div class="error-grid">
+                  <div class="error-tile warn"><strong>18</strong><span>pickup/dropoff 좌표 누락</span></div>
+                  <div class="error-tile warn"><strong>7</strong><span>pickup/dropoff 주소 누락</span></div>
+                  <div class="error-tile bad"><strong>11</strong><span>rider_id 미매칭</span></div>
+                  <div class="error-tile"><strong>3</strong><span>order_status 미인식</span></div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>미리보기</h3><p class="card-desc">엑셀 → 주문 데이터 저장 전 화면</p></div></div>
+                <div class="table-card">
+                  <table class="mini-table">
+                    <thead><tr><th>order_id</th><th>rider</th><th>status</th><th>coord</th></tr></thead>
+                    <tbody id="previewRows"></tbody>
+                  </table>
+                </div>
+                <div class="btn-row" style="margin-top:12px;">
+                  <button class="btn ghost" data-go="excelUpload">다시 업로드</button>
+                  <button class="btn" data-go="adminDashboard">대시보드 반영</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Admin: account management -->
+            <div class="screen" data-screen="accountManage">
+              <div class="filter-strip">
+                <button class="filter-chip active">전체 42</button>
+                <button class="filter-chip">활성 38</button>
+                <button class="filter-chip">비활성 2</button>
+                <button class="filter-chip">승인대기 2</button>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>관리자 라이더 계정 관리</h3><p class="card-desc">계정 생성, 상태 변경, 최초 비밀번호 설정 흐름</p></div><span class="mini-chip">RBAC</span></div>
+                <div class="form-grid">
+                  <div class="form-two">
+                    <div class="field"><label>라이더명</label><input placeholder="예: 박서준" /></div>
+                    <div class="field"><label>rider_id</label><input placeholder="r-043" /></div>
+                  </div>
+                  <div class="field"><label>아이디</label><input placeholder="rider043" /></div>
+                  <div class="field"><label>초기 상태</label><select><option>승인대기</option><option>활성</option><option>비활성</option></select></div>
+                  <button class="btn">라이더 계정 생성 + 최초 비밀번호 링크 발송</button>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>계정 목록</h3><p class="card-desc">상태 토글은 승인/비활성화 액션의 UI 골격입니다.</p></div></div>
+                <div class="account-list" id="accountList"></div>
+              </div>
+            </div>
+
+            <!-- Admin: coaching insight -->
+            <div class="screen" data-screen="coachingInsight">
+              <div class="card select-card">
+                <div class="coach-select-grid">
+                  <div class="coach-field"><label>기준 주차</label><select><option>5월3주차</option><option>5월4주차</option><option>2026-W22</option></select></div>
+                  <div class="coach-field"><label>라이더 선택</label><select><option>김수환 · 116건</option><option>김민준 · 112건</option><option>이서연 · 121건</option><option>박지훈 · 116건</option></select></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title-row"><div><h3 class="coach-shell-title">내 운행 인사이트</h3><p class="coach-shell-subtitle">5월3주차 업로드 데이터를 라이더용으로 가공해 보여줍니다. 관리자는 이 화면으로 라이더에게 전달될 코칭 내용을 미리 검수합니다.</p></div><span class="mini-chip">Ver.1 계승</span></div>
+                <div class="coach-kpi-grid">
+                  <div class="coach-mini-card"><span>완료</span><strong>116건</strong></div>
+                  <div class="coach-mini-card"><span>출근</span><strong>5회</strong></div>
+                  <div class="coach-mini-card good"><span>강점 구간</span><strong>저녁 이후</strong></div>
+                  <div class="coach-mini-card warn"><span>보강 구간</span><strong>아침</strong></div>
+                </div>
+              </div>
+
+              <div class="accordion-stack">
+                <details class="coach-accordion" open>
+                  <summary><span class="summary-left"><span class="summary-icon">♙</span>주간 요약</span></summary>
+                  <div class="coach-accordion-body">
+                    <div class="coach-detail-grid">
+                      <div class="coach-detail-tile"><span>등급</span><strong>관리대상</strong></div>
+                      <div class="coach-detail-tile"><span>배차 친화 점수</span><strong>61점</strong></div>
+                      <div class="coach-detail-tile"><span>멀티율</span><strong>81%</strong></div>
+                      <div class="coach-detail-tile"><span>요일 일관성</span><strong>71.4%</strong></div>
+                    </div>
+                    <div class="coach-summary-band"><div><strong>요약 판단</strong><span>멀티 처리 효율은 좋고, Post_Lunch와 아침 구간 보강이 필요합니다.</span></div><span class="coach-badge warn">관리대상</span></div>
+                  </div>
+                </details>
+
+                <details class="coach-accordion">
+                  <summary><span class="summary-left"><span class="summary-icon">▥</span>전 구간 참여율</span></summary>
+                  <div class="coach-accordion-body">
+                    <div class="insight-row-card warn"><div class="insight-row-top"><strong>아침</strong><span class="insight-row-meta">0건 · 0% <span class="coach-badge warn">보강</span></span></div><div class="insight-progress"><span style="--w:0%"></span></div></div>
+                    <div class="insight-row-card warn"><div class="insight-row-top"><strong>점심 피크</strong><span class="insight-row-meta">0건 · 0% <span class="coach-badge warn">보강</span></span></div><div class="insight-progress"><span style="--w:0%"></span></div></div>
+                    <div class="insight-row-card warn"><div class="insight-row-top"><strong>점심 이후</strong><span class="insight-row-meta">0건 · 0% <span class="coach-badge warn">보강</span></span></div><div class="insight-progress"><span style="--w:0%"></span></div></div>
+                    <div class="insight-row-card"><div class="insight-row-top"><strong>저녁 피크</strong><span class="insight-row-meta">34건 · 29.3% <span class="coach-badge">유지</span></span></div><div class="insight-progress"><span style="--w:29%"></span></div></div>
+                    <div class="insight-row-card good"><div class="insight-row-top"><strong>저녁 이후</strong><span class="insight-row-meta">82건 · 70.7% <span class="coach-badge good">강점</span></span></div><div class="insight-progress"><span style="--w:71%"></span></div></div>
+                  </div>
+                </details>
+
+                <details class="coach-accordion">
+                  <summary><span class="summary-left"><span class="summary-icon">◷</span>출근·활동 패턴</span></summary>
+                  <div class="coach-accordion-body">
+                    <div class="insight-row-card"><div class="insight-row-top"><strong>월</strong><span class="insight-row-meta">37건 · 31.9%</span></div><div class="insight-progress"><span style="--w:32%"></span></div></div>
+                    <div class="insight-row-card"><div class="insight-row-top"><strong>화</strong><span class="insight-row-meta">0건 · 0%</span></div><div class="insight-progress"><span style="--w:0%"></span></div></div>
+                    <div class="insight-row-card"><div class="insight-row-top"><strong>수</strong><span class="insight-row-meta">35건 · 30.2%</span></div><div class="insight-progress"><span style="--w:30%"></span></div></div>
+                    <div class="insight-row-card"><div class="insight-row-top"><strong>목</strong><span class="insight-row-meta">25건 · 21.6%</span></div><div class="insight-progress"><span style="--w:22%"></span></div></div>
+                    <div class="insight-row-card"><div class="insight-row-top"><strong>금</strong><span class="insight-row-meta">3건 · 2.6%</span></div><div class="insight-progress"><span style="--w:3%"></span></div></div>
+                    <div class="insight-row-card"><div class="insight-row-top"><strong>토</strong><span class="insight-row-meta">0건 · 0%</span></div><div class="insight-progress"><span style="--w:0%"></span></div></div>
+                    <div class="insight-row-card"><div class="insight-row-top"><strong>일</strong><span class="insight-row-meta">16건 · 13.8%</span></div><div class="insight-progress"><span style="--w:14%"></span></div></div>
+                  </div>
+                </details>
+
+                <details class="coach-accordion">
+                  <summary><span class="summary-left"><span class="summary-icon">▱</span>배달 타입·멀티</span></summary>
+                  <div class="coach-accordion-body">
+                    <div class="insight-row-card"><div class="insight-row-top"><strong>단건배달</strong><span class="insight-row-meta">22건 · 19%</span></div><div class="insight-progress"><span style="--w:19%"></span></div></div>
+                    <div class="insight-row-card good"><div class="insight-row-top"><strong>멀티배달1</strong><span class="insight-row-meta">39건 · 33.6%</span></div><div class="insight-progress"><span style="--w:34%"></span></div></div>
+                    <div class="insight-row-card good"><div class="insight-row-top"><strong>멀티배달2</strong><span class="insight-row-meta">39건 · 33.6%</span></div><div class="insight-progress"><span style="--w:34%"></span></div></div>
+                    <div class="insight-row-card"><div class="insight-row-top"><strong>멀티배달3</strong><span class="insight-row-meta">16건 · 13.8%</span></div><div class="insight-progress"><span style="--w:14%"></span></div></div>
+                    <div class="insight-row-card"><div class="insight-row-top"><strong>멀티배달4</strong><span class="insight-row-meta">0건 · 0%</span></div><div class="insight-progress"><span style="--w:0%"></span></div></div>
+                  </div>
+                </details>
+
+                <details class="coach-accordion" open>
+                  <summary><span class="summary-left"><span class="summary-icon">✣</span>코칭 포인트</span></summary>
+                  <div class="coach-accordion-body">
+                    <div class="coach-pill-list">
+                      <span class="coach-pill">멀티배달 수행율이 높아 피크타임 처리 효율이 좋습니다.</span>
+                      <span class="coach-pill">Post_Dinner 참여율이 71%로 좋습니다.</span>
+                      <span class="coach-pill warn">14:00~16:30 Post_Lunch 구간 참여가 낮습니다.</span>
+                    </div>
+                    <p class="card-desc">Post_Lunch 14:00~16:30 구간에서 2~3콜을 추가 목표로 잡아보세요.</p>
+                  </div>
+                </details>
+              </div>
+
+              <div class="score-panel">
+                <div><h3>내 배차 친화 점수</h3><strong>김수환</strong><p>관리대상 · 허용 · 5월3주차 116건</p></div>
+                <div class="score-ring" style="--pct:61%"><span>61<small>점</small></span></div>
+              </div>
+
+              <div class="coach-card-grid">
+                <div class="coach-mini-card"><span>내 완료건수</span><strong>116건</strong></div>
+                <div class="coach-mini-card warn"><span>현재 등급</span><strong>관리대상</strong></div>
+                <div class="coach-mini-card"><span>다음 등급까지</span><strong>34건</strong></div>
+                <div class="coach-mini-card good"><span>멀티비율</span><strong>81%</strong></div>
+                <div class="coach-mini-card"><span>Post_Lunch</span><strong>0%</strong></div>
+                <div class="coach-mini-card"><span>Post_Dinner</span><strong>71%</strong></div>
+              </div>
+
+              <div class="card coach-message-card">
+                <div class="card-title-row"><div><h3>라이더용 코칭 메시지</h3><p class="card-desc">라이더 화면에 노출될 자동 생성 메시지</p></div><span class="mini-chip">Auto copy</span></div>
+                <p>김수환님의 배차 친화 점수는 61점이며, 현재 등급은 허용입니다.</p>
+                <p>이번 주 실천 미션: Post_Lunch 구간은 경쟁이 줄어드는 시간대이므로 최소 2~3콜 이상 유지하면 배차 신뢰도 유지에 도움이 됩니다.</p>
+              </div>
+            </div>
+
+            <!-- Rider: own coaching insight -->
+            <div class="screen" data-screen="riderCoaching">
+              <div class="card select-card">
+                <div class="coach-select-grid">
+                  <div class="coach-field"><label>내 기준 주차</label><select><option>5월3주차</option><option>5월4주차</option><option>2026-W22</option></select></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title-row"><div><h3 class="coach-shell-title">내 운행 인사이트</h3><p class="coach-shell-subtitle">관리자가 업로드한 주간 데이터를 내 운행 패턴과 코칭 메시지로 정리해 보여줍니다. 타 라이더 정보는 보이지 않습니다.</p></div><span class="scope-badge">내 데이터</span></div>
+                <div class="coach-kpi-grid">
+                  <div class="coach-mini-card"><span>완료</span><strong>116건</strong></div>
+                  <div class="coach-mini-card"><span>출근</span><strong>5회</strong></div>
+                  <div class="coach-mini-card good"><span>강점 구간</span><strong>저녁 이후</strong></div>
+                  <div class="coach-mini-card warn"><span>보강 구간</span><strong>아침</strong></div>
+                </div>
+              </div>
+
+              <div class="score-panel">
+                <div><h3>내 배차 친화 점수</h3><strong>김수환</strong><p>관리대상 · 허용 · 5월3주차 116건</p></div>
+                <div class="score-ring" style="--pct:61%"><span>61<small>점</small></span></div>
+              </div>
+
+              <div class="accordion-stack">
+                <details class="coach-accordion" open>
+                  <summary><span class="summary-left"><span class="summary-icon">♙</span>주간 요약</span></summary>
+                  <div class="coach-accordion-body">
+                    <div class="coach-detail-grid">
+                      <div class="coach-detail-tile"><span>등급</span><strong>관리대상</strong></div>
+                      <div class="coach-detail-tile"><span>배차 친화 점수</span><strong>61점</strong></div>
+                      <div class="coach-detail-tile"><span>멀티율</span><strong>81%</strong></div>
+                      <div class="coach-detail-tile"><span>요일 일관성</span><strong>71.4%</strong></div>
+                    </div>
+                  </div>
+                </details>
+                <details class="coach-accordion">
+                  <summary><span class="summary-left"><span class="summary-icon">▥</span>전 구간 참여율</span></summary>
+                  <div class="coach-accordion-body">
+                    <div class="insight-row-card warn"><div class="insight-row-top"><strong>아침</strong><span class="insight-row-meta">0건 · 0% <span class="coach-badge warn">보강</span></span></div><div class="insight-progress"><span style="--w:0%"></span></div></div>
+                    <div class="insight-row-card warn"><div class="insight-row-top"><strong>점심 이후</strong><span class="insight-row-meta">0건 · 0% <span class="coach-badge warn">보강</span></span></div><div class="insight-progress"><span style="--w:0%"></span></div></div>
+                    <div class="insight-row-card"><div class="insight-row-top"><strong>저녁 피크</strong><span class="insight-row-meta">34건 · 29.3% <span class="coach-badge">유지</span></span></div><div class="insight-progress"><span style="--w:29%"></span></div></div>
+                    <div class="insight-row-card good"><div class="insight-row-top"><strong>저녁 이후</strong><span class="insight-row-meta">82건 · 70.7% <span class="coach-badge good">강점</span></span></div><div class="insight-progress"><span style="--w:71%"></span></div></div>
+                  </div>
+                </details>
+                <details class="coach-accordion">
+                  <summary><span class="summary-left"><span class="summary-icon">◷</span>출근·활동 패턴</span></summary>
+                  <div class="coach-accordion-body">
+                    <div class="insight-row-card"><div class="insight-row-top"><strong>월</strong><span class="insight-row-meta">37건 · 31.9%</span></div><div class="insight-progress"><span style="--w:32%"></span></div></div>
+                    <div class="insight-row-card"><div class="insight-row-top"><strong>수</strong><span class="insight-row-meta">35건 · 30.2%</span></div><div class="insight-progress"><span style="--w:30%"></span></div></div>
+                    <div class="insight-row-card"><div class="insight-row-top"><strong>목</strong><span class="insight-row-meta">25건 · 21.6%</span></div><div class="insight-progress"><span style="--w:22%"></span></div></div>
+                    <div class="insight-row-card"><div class="insight-row-top"><strong>일</strong><span class="insight-row-meta">16건 · 13.8%</span></div><div class="insight-progress"><span style="--w:14%"></span></div></div>
+                  </div>
+                </details>
+                <details class="coach-accordion" open>
+                  <summary><span class="summary-left"><span class="summary-icon">✣</span>코칭 포인트</span></summary>
+                  <div class="coach-accordion-body">
+                    <div class="coach-pill-list"><span class="coach-pill">멀티배달 수행율이 높아 피크타임 처리 효율이 좋습니다.</span><span class="coach-pill">Post_Dinner 참여율이 71%로 좋습니다.</span><span class="coach-pill warn">Post_Lunch 구간 참여가 낮습니다.</span></div>
+                    <p class="card-desc">Post_Lunch 14:00~16:30 구간에서 2~3콜을 추가 목표로 잡아보세요.</p>
+                  </div>
+                </details>
+              </div>
+
+              <div class="coach-card-grid">
+                <div class="coach-mini-card"><span>내 완료건수</span><strong>116건</strong></div>
+                <div class="coach-mini-card warn"><span>현재 등급</span><strong>관리대상</strong></div>
+                <div class="coach-mini-card"><span>다음 등급까지</span><strong>34건</strong></div>
+                <div class="coach-mini-card good"><span>멀티비율</span><strong>81%</strong></div>
+                <div class="coach-mini-card"><span>Post_Lunch</span><strong>0%</strong></div>
+                <div class="coach-mini-card"><span>Post_Dinner</span><strong>71%</strong></div>
+              </div>
+
+              <div class="card coach-message-card">
+                <div class="card-title-row"><div><h3>이번 주 실천 미션</h3><p class="card-desc">복잡한 분석보다 바로 실행할 수 있는 메시지만 표시</p></div></div>
+                <p>Post_Lunch 구간은 경쟁이 줄어드는 시간대이므로 최소 2~3콜 이상 유지하면 배차 신뢰도 유지에 도움이 됩니다.</p>
+              </div>
+              <div class="card coach-message-card">
+                <div class="card-title-row"><div><h3>다음 보상/등급 힌트</h3><p class="card-desc">라이더가 다음 액션을 이해하기 쉽게 제공</p></div></div>
+                <p>Post_Lunch 14:00~16:30 구간에서 2~3콜을 추가 목표로 잡아보세요.</p>
+              </div>
+            </div>
+
+            <!-- Rider: home/mypage -->
+            <div class="screen" data-screen="riderHome">
+              <div class="data-guard" style="margin-bottom:12px;">
+                <div>🛡️</div><div><b>라이더 전용 모드</b><span>로그인 즉시 rider_id=r-001 필터가 강제 적용됩니다. 전체 KPI, 엑셀 업로드, 계정 관리, 타 라이더 목록은 라이더 UI에서 노출하지 않습니다.</span></div>
+              </div>
+
+              <div class="rider-hero-card">
+                <div class="card-title-row" style="margin-bottom:0;">
+                  <div>
+                    <h3 id="riderHomeGreeting">김민준님, 이번 주 운행 현황</h3>
+                    <p id="riderHomeScope">2026-W22 · 5/27(수)~6/2(화) · 내 오더만 표시</p>
+                  </div>
+                  <span class="scope-badge">본인 데이터</span>
+                </div>
+                <div class="hero-metrics">
+                  <div class="hero-metric"><strong id="riderHeroTotal">128</strong><span>주간 오더</span></div>
+                  <div class="hero-metric"><strong id="riderHeroDone">112</strong><span>완료</span></div>
+                  <div class="hero-metric"><strong id="riderHeroFee">42.8만</strong><span>예상 정산</span></div>
+                </div>
+              </div>
+
+              <div class="card rider-task-card" id="riderActiveOrderCard">
+                <div class="card-title-row"><div><h3>현재 진행중 오더</h3><p class="card-desc">다음으로 확인해야 할 픽업/도착 정보</p></div><span class="status-chip progress">진행중</span></div>
+              </div>
+
+              <div class="filter-strip">
+                <button class="filter-chip active">내 주차 2026-W22</button>
+                <button class="filter-chip" data-status-filter="all">전체</button>
+                <button class="filter-chip" data-status-filter="완료">완료</button>
+                <button class="filter-chip" data-status-filter="진행중">진행중</button>
+                <button class="filter-chip" data-go="riderSettlement">정산 예정</button>
+              </div>
+
+              <div class="kpi-grid">
+                <div class="kpi-card click-card" data-go="riderOrders" data-kpi="all">
+                  <div class="kpi-label"><span>내 주간 오더</span><span>r-001</span></div>
+                  <div class="kpi-number" id="riderKpiTotal">128</div>
+                  <div class="kpi-meta">클릭 시 내 오더 목록만 표시</div>
+                </div>
+                <div class="kpi-card done click-card" data-go="riderOrders" data-kpi="완료"><div class="kpi-label"><span>완료</span><span id="riderDoneRate">87%</span></div><div class="kpi-number" id="riderKpiDone">112</div><div class="kpi-meta">완료 콜</div></div>
+                <div class="kpi-card progress click-card" data-go="riderOrders" data-kpi="진행중"><div class="kpi-label"><span>진행중</span><span>실시간</span></div><div class="kpi-number" id="riderKpiProgress">9</div><div class="kpi-meta">현재 진행 콜</div></div>
+                <div class="kpi-card cancel click-card" data-go="riderOrders" data-kpi="취소"><div class="kpi-label"><span>취소</span><span>이번 주</span></div><div class="kpi-number" id="riderKpiCancel">1</div><div class="kpi-meta">내 취소 콜</div></div>
+                <div class="kpi-card rider click-card" data-go="riderSettlement"><div class="kpi-label"><span>예상 정산</span><span>확장</span></div><div class="kpi-number" id="riderKpiSettlement">42.8</div><div class="kpi-meta">만원 · 정산 확장 영역</div></div>
+              </div>
+
+              <div class="card">
+                <div class="card-title-row"><div><h3>내가 바로 확인할 것</h3><p class="card-desc">라이더에게 필요한 핵심 이동만 배치</p></div></div>
+                <div class="action-grid">
+                  <button class="action-tile" data-go="riderOrders"><strong>내 오더 목록</strong><span>상태별로 내 주문만 확인</span></button>
+                  <button class="action-tile" data-go="riderMapSelf"><strong>내 지도</strong><span>내 픽업·도착·경로만 표시</span></button>
+                  <button class="action-tile" data-go="riderCoaching"><strong>내 코칭</strong><span>운행 인사이트와 실천 미션</span></button>
+                  <button class="action-tile" data-go="riderSettlement"><strong>정산 예정</strong><span>delivery_fee 기반 확장 영역</span></button>
+                  <button class="action-tile" data-go="riderProfile"><strong>내 정보</strong><span>계정 상태와 접근 범위 확인</span></button>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title-row"><div><h3>내 코칭 인사이트</h3><p class="card-desc">Ver.1에서 좋았던 라이더 인사이트를 Ver.2 카드형 UI로 반영</p></div><button class="text-link" data-go="riderCoaching">상세</button></div>
+                <div class="coach-kpi-grid">
+                  <div class="coach-mini-card focus"><span>배차 친화 점수</span><strong>61점</strong></div>
+                  <div class="coach-mini-card warn"><span>이번 주 미션</span><strong>Post_Lunch</strong></div>
+                  <div class="coach-mini-card good"><span>강점</span><strong>멀티 81%</strong></div>
+                  <div class="coach-mini-card"><span>다음 등급까지</span><strong>34건</strong></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title-row"><div><h3>내 지도 미리보기</h3><p class="card-desc">rider_id 기준 본인 경로만 표시</p></div><button class="text-link" data-go="riderMapSelf">확대</button></div>
+                <div class="map-shell" id="riderHomeMap"></div>
+              </div>
+              <div class="card">
+                <div class="rider-list-header"><div><h3 style="margin:0;">최근 내 오더</h3><p class="card-desc" style="margin:4px 0 0;">클릭 시 내 오더 상세 조회</p></div><button class="text-link" data-go="riderOrders">전체</button></div>
+                <div class="order-list" id="myOrders"></div>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>정산 미리보기</h3><p class="card-desc">추후 정산 내역으로 확장 가능한 구조</p></div><button class="text-link" data-go="riderSettlement">상세</button></div>
+                <div class="detail-grid">
+                  <div class="detail-cell"><span>예상 정산</span><strong id="riderHomeSettlement">₩428,000</strong></div>
+                  <div class="detail-cell"><span>정산 기준</span><strong>delivery_fee</strong></div>
+                  <div class="detail-cell"><span>주간 거리</span><strong id="riderHomeDistance">497.6km</strong></div>
+                  <div class="detail-cell"><span>정산 상태</span><strong>확장 예정</strong></div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>라이더 공지</h3><p class="card-desc">운행자가 알아야 할 내용만 노출</p></div></div>
+                <div class="notice-list">
+                  <div class="notice-item"><div>📌</div><div><b>이번 주 기준</b><span>주간 집계는 수요일 시작, 다음주 화요일 종료 기준입니다.</span></div></div>
+                  <div class="notice-item"><div>🔒</div><div><b>개인정보 보호</b><span>타 라이더 랭킹, 전체 운영 KPI, 계정 관리 메뉴는 라이더 권한에서 숨김 처리됩니다.</span></div></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Rider: order list -->
+            <div class="screen" data-screen="riderOrders">
+              <div class="data-guard" style="margin-bottom:12px;">
+                <div>🔒</div><div><b>내 오더 목록</b><span>목록, 필터, 지도 포커스 모두 현재 로그인한 rider_id=r-001 데이터만 사용합니다.</span></div>
+              </div>
+              <div class="filter-strip">
+                <button class="filter-chip active">2026-W22</button>
+                <button class="filter-chip" data-status-filter="all">전체</button>
+                <button class="filter-chip" data-status-filter="완료">완료</button>
+                <button class="filter-chip" data-status-filter="진행중">진행중</button>
+                <button class="filter-chip" data-status-filter="취소">취소</button>
+                <button class="filter-chip" data-status-filter="지연">지연</button>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>상태별 내 오더</h3><p class="card-desc" id="riderOrdersCaption">전체 상태 · 내 주문만 표시</p></div><button class="text-link" data-go="riderMapSelf">지도</button></div>
+                <div class="status-grid">
+                  <div class="status-mini"><strong id="riderListDone">112</strong><span>완료</span></div>
+                  <div class="status-mini"><strong id="riderListProgress">9</strong><span>진행중</span></div>
+                  <div class="status-mini"><strong id="riderListCancel">1</strong><span>취소</span></div>
+                  <div class="status-mini"><strong id="riderListDelay">6</strong><span>지연</span></div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>내 오더 목록</h3><p class="card-desc">카드 클릭 → 오더 상세맵. 타 라이더 주문 접근 시 자동 차단.</p></div><span class="mini-chip">own scope</span></div>
+                <div class="order-list" id="riderOrdersScreenList"></div>
+              </div>
+            </div>
+
+            <!-- Rider: dedicated map -->
+            <div class="screen" data-screen="riderMapSelf">
+              <div class="data-guard" style="margin-bottom:12px;">
+                <div>🗺️</div><div><b>내 지도</b><span>Google Maps 연동 전 자리 표시용 맵입니다. 마커와 경로선은 본인 pickup/dropoff 좌표만 사용합니다.</span></div>
+              </div>
+              <div class="filter-strip">
+                <button class="filter-chip active">내 지도</button>
+                <button class="filter-chip">2026-W22</button>
+                <button class="filter-chip">내 오더만</button>
+                <button class="filter-chip" data-status-filter="진행중">진행중</button>
+                <button class="filter-chip" data-status-filter="완료">완료</button>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>본인 라이더 맵</h3><p class="card-desc">라이더 화면에서는 본인 rider_id 데이터만 표시됩니다.</p></div><span class="mini-chip">r-001</span></div>
+                <div class="map-shell tall" id="selfMapCanvas"></div>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>지도 포커스용 내 오더</h3><p class="card-desc">오더 클릭 시 상세맵 이동, 마커 클릭 시 지도 포커스</p></div></div>
+                <div class="order-list" id="selfMapOrders"></div>
+              </div>
+            </div>
+
+            <!-- Rider: settlement -->
+            <div class="screen" data-screen="riderSettlement">
+              <div class="data-guard" style="margin-bottom:12px;">
+                <div>₩</div><div><b>정산 확장 구조</b><span>현재는 프로토타입입니다. 추후 delivery_fee, 거리, 완료 여부, 패널티/인센티브 규칙을 연결할 수 있습니다.</span></div>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>이번 주 예상 정산</h3><p class="card-desc">내 오더 기준 정산 요약</p></div><span class="mini-chip">확장 예정</span></div>
+                <div class="settlement-band">
+                  <span>2026-W22 예상 지급액</span>
+                  <strong id="riderSettlementAmount">₩428,000</strong>
+                  <span>완료 콜, delivery_fee, 거리/시간 데이터 기반 확장</span>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>정산 항목 미리보기</h3><p class="card-desc">내 오더별 수수료만 표시</p></div></div>
+                <div class="order-list" id="riderSettlementList"></div>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>추후 확장 필드</h3><p class="card-desc">개발팀 연결 포인트</p></div></div>
+                <div class="detail-grid">
+                  <div class="detail-cell"><span>기본 수수료</span><strong>delivery_fee</strong></div>
+                  <div class="detail-cell"><span>거리 보정</span><strong>distance_km</strong></div>
+                  <div class="detail-cell"><span>시간 보정</span><strong>duration_min</strong></div>
+                  <div class="detail-cell"><span>상태 반영</span><strong>완료 기준</strong></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Rider: profile -->
+            <div class="screen" data-screen="riderProfile">
+              <div class="card">
+                <div class="card-title-row">
+                  <div style="display:flex; align-items:center; gap:11px; min-width:0;">
+                    <div class="avatar green">김</div>
+                    <div class="item-main"><strong>김민준 라이더</strong><span>활성 계정 · 본인 데이터 조회 권한</span></div>
+                  </div>
+                  <span class="status-chip done">활성</span>
+                </div>
+                <div class="detail-grid">
+                  <div class="detail-cell"><span>user_id</span><strong>u-rider-001</strong></div>
+                  <div class="detail-cell"><span>rider_id</span><strong>r-001</strong></div>
+                  <div class="detail-cell"><span>role</span><strong>rider</strong></div>
+                  <div class="detail-cell"><span>account_status</span><strong>active</strong></div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>접근 가능한 메뉴</h3><p class="card-desc">라이더 앱에서 실제로 필요한 화면만 유지</p></div></div>
+                <div class="notice-list">
+                  <div class="notice-item"><div>▦</div><div><b>내 현황</b><span>내 주간 KPI, 현재 진행중 오더, 최근 오더</span></div></div>
+                  <div class="notice-item"><div>☰</div><div><b>내 오더</b><span>내 주문 목록과 상세 조회</span></div></div>
+                  <div class="notice-item"><div>⌖</div><div><b>내 지도</b><span>내 pickup/dropoff 좌표와 경로</span></div></div>
+                  <div class="notice-item"><div>✦</div><div><b>내 코칭</b><span>내 운행 인사이트, 배차 친화 점수, 주간 실천 미션</span></div></div>
+                  <div class="notice-item"><div>₩</div><div><b>정산</b><span>추후 정산 내역 확장 영역</span></div></div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>보안/권한 설명</h3><p class="card-desc">관리자용 기능은 노출하지 않는 구조</p></div></div>
+                <div class="privacy-line">adminDashboard, weeklyMap, excelUpload, uploadSummary, coachingInsight, accountManage, systemDiagram 화면은 rider 로그인 상태에서 접근 요청이 들어와도 내 현황으로 되돌립니다.</div>
+              </div>
+              <button class="btn secondary" data-go="login">로그아웃</button>
+            </div>
+
+            <!-- System architecture -->
+            <div class="screen" data-screen="systemDiagram">
+              <div class="card">
+                <div class="card-title-row"><div><h3>시스템 구조도</h3><p class="card-desc">관리자/라이더, 인증, 업로드, 저장, 지도, 권한 제어 흐름</p></div><span class="mini-chip">Handoff</span></div>
+                <div class="system-diagram">
+                  <div class="diagram-row">
+                    <div class="diagram-card dark"><strong>관리자 Admin</strong><span>전체 주차·라이더·오더·계정 관리 접근</span></div>
+                    <div class="arrow">→</div>
+                    <div class="diagram-card dark"><strong>라이더 Rider</strong><span>본인 rider_id 데이터만 조회</span></div>
+                  </div>
+                  <div class="diagram-row">
+                    <div class="diagram-card blue"><strong>인증 Auth</strong><span>로그인, 회원가입, 최초 비밀번호, 재설정, 승인대기</span></div>
+                    <div class="arrow">→</div>
+                    <div class="diagram-card purple"><strong>권한 제어 RBAC</strong><span>role, account_status 기준 화면/데이터 접근 제어</span></div>
+                  </div>
+                  <div class="diagram-row">
+                    <div class="diagram-card orange"><strong>엑셀 업로드</strong><span>수요일~화요일 week_label 기준 파싱 및 검증</span></div>
+                    <div class="arrow">→</div>
+                    <div class="diagram-card green"><strong>주문/좌표 저장</strong><span>pickup/dropoff 주소와 사전 좌표화 lat/lng 저장</span></div>
+                  </div>
+                  <div class="diagram-row">
+                    <div class="diagram-card blue"><strong>대시보드</strong><span>KPI, 상태 요약, 랭킹, 시간대/지역 분석, 최근 오더</span></div>
+                    <div class="arrow">→</div>
+                    <div class="diagram-card green"><strong>지도 뷰 3종</strong><span>주간 전체맵, 라이더별 맵, 오더 상세맵</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>React 컴포넌트 구조 예시</h3><p class="card-desc">개발팀 전달용 컴포넌트 골격</p></div></div>
+                <div class="component-code">&lt;AppShell&gt;
+  &lt;AuthRoutes&gt;
+    &lt;LoginScreen /&gt;
+    &lt;SignupScreen /&gt;
+    &lt;FirstPasswordScreen /&gt;
+    &lt;PasswordResetScreen /&gt;
+    &lt;ApprovalWaitingScreen /&gt;
+  &lt;/AuthRoutes&gt;
+  &lt;RBACGuard role="admin"&gt;
+    &lt;AdminWeeklyDashboard /&gt;
+    &lt;ExcelUploadWizard /&gt;
+    &lt;UploadResultSummary /&gt;
+    &lt;RiderAccountManager /&gt;
+    &lt;RiderCoachingInsight mode="admin-preview" /&gt;
+  &lt;/RBACGuard&gt;
+  &lt;RBACGuard role="rider" scope="own-rider-id"&gt;
+    &lt;RiderMyPage /&gt;
+    &lt;RiderCoachingInsight mode="self-only" /&gt;
+  &lt;/RBACGuard&gt;
+  &lt;MapView type="weekly | rider | order" /&gt;
+&lt;/AppShell&gt;</div>
+              </div>
+              <div class="card">
+                <div class="card-title-row"><div><h3>데이터 스키마 반영</h3><p class="card-desc">화면에 노출되는 더미 데이터 필드</p></div></div>
+                <div class="schema-list" id="schemaList"></div>
+              </div>
+            </div>
+          </section>
+
+          <nav class="bottom-nav" id="bottomNav"></nav>
+          <div class="drawer-overlay" id="drawerOverlay"><div class="drawer" id="drawerContent"></div></div>
+          <div class="toast" id="toast"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const state = {
+      role: 'admin',
+      loginRole: 'admin',
+      screen: 'login',
+      currentRiderId: 'r-001',
+      selectedRiderId: 'r-001',
+      selectedOrderId: 'ORD-10482',
+      focusedOrderId: 'ORD-10482',
+      statusFilter: 'all'
+    };
+
+    const screens = {
+      login: { title: '로그인', eyebrow: 'Auth', subtitle: '관리자/라이더 역할에 따라 로그인 후 화면이 분기됩니다.', auth: true },
+      signup: { title: '회원가입', eyebrow: 'Auth', subtitle: '신규 라이더 가입 및 관리자 승인 흐름', auth: true },
+      firstPassword: { title: '최초 비밀번호 설정', eyebrow: 'Auth', subtitle: '관리자 생성 계정의 최초 접속 플로우', auth: true },
+      passwordReset: { title: '비밀번호 재설정', eyebrow: 'Auth', subtitle: '아이디/휴대폰 기반 재설정 화면', auth: true },
+      approvalWait: { title: '승인 대기', eyebrow: 'Auth', subtitle: '관리자 승인 전 접근 제한 상태', auth: true },
+      adminDashboard: { title: '관리자 주간 대시보드', eyebrow: 'Admin', subtitle: '수요일~다음주 화요일 기준 전체 운영 현황' },
+      weeklyMap: { title: '주간 전체맵', eyebrow: 'Admin Map', subtitle: '전체 라이더와 전체 오더의 상태별 지도 뷰' },
+      riderDetail: { title: '라이더별 상세', eyebrow: 'Admin Map', subtitle: '선택 라이더의 주간 오더와 경로' },
+      orderDetail: { title: '오더 상세', eyebrow: 'Map Detail', subtitle: '선택 오더의 픽업/도착/경로 상세맵' },
+      excelUpload: { title: '엑셀 업로드', eyebrow: 'Admin', subtitle: '주차별 데이터 업로드와 필드 매핑' },
+      uploadSummary: { title: '업로드 결과', eyebrow: 'Admin', subtitle: '오류/미매칭과 데이터 품질 요약' },
+      accountManage: { title: '라이더 계정 관리', eyebrow: 'Admin', subtitle: '계정 생성, 승인, 활성/비활성 관리' },
+      coachingInsight: { title: '코칭 인사이트', eyebrow: 'Admin Coach', subtitle: 'Ver.1 라이더 인사이트를 Ver.2 스타일로 고도화한 코칭 화면' },
+      riderHome: { title: '내 현황', eyebrow: 'Rider', subtitle: '본인 주간 오더, 현재 진행 콜, 정산 미리보기' },
+      riderOrders: { title: '내 오더', eyebrow: 'Rider', subtitle: '본인 주문만 조회하는 라이더 전용 목록' },
+      riderMapSelf: { title: '내 지도', eyebrow: 'Rider Map', subtitle: '본인 오더만 표시되는 라이더 전용 맵' },
+      riderCoaching: { title: '내 코칭', eyebrow: 'Rider Coach', subtitle: '내 운행 인사이트, 배차 친화 점수, 주간 실천 미션' },
+      riderSettlement: { title: '정산 예정', eyebrow: 'Rider', subtitle: '추후 정산 내역 확장용 개인 요약' },
+      riderProfile: { title: '내 정보', eyebrow: 'Rider', subtitle: '계정 상태와 접근 가능한 메뉴' },
+      systemDiagram: { title: '시스템 구조도', eyebrow: 'Handoff', subtitle: '권한·데이터·지도·컴포넌트 구조' }
+    };
+
+    const navGroups = {
+      auth: [
+        ['login','로그인'], ['signup','회원가입'], ['firstPassword','최초 비밀번호'], ['passwordReset','비밀번호 재설정'], ['approvalWait','승인 대기']
+      ],
+      admin: [
+        ['adminDashboard','주간 대시보드'], ['weeklyMap','주간 전체맵'], ['riderDetail','라이더별 상세'], ['orderDetail','오더 상세맵'], ['excelUpload','엑셀 업로드'], ['uploadSummary','업로드 결과'], ['coachingInsight','코칭 인사이트'], ['accountManage','계정 관리']
+      ],
+      rider: [
+        ['riderHome','내 현황'], ['riderOrders','내 오더'], ['riderMapSelf','내 지도'], ['riderCoaching','내 코칭'], ['riderSettlement','정산'], ['riderProfile','내 정보']
+      ],
+      handoff: [['systemDiagram','시스템 구조도']]
+    };
+
+    const adminOnlyScreens = ['adminDashboard','weeklyMap','riderDetail','excelUpload','uploadSummary','coachingInsight','accountManage'];
+    const riderOnlyScreens = ['riderHome','riderOrders','riderMapSelf','riderCoaching','riderSettlement','riderProfile'];
+    const blockedForRiderScreens = adminOnlyScreens.concat(['systemDiagram','riderDetail']);
+
+    const riders = [
+      { rider_id: 'r-001', rider_name: '김민준', user_id: 'u-rider-001', role: 'rider', account_status: 'active', done: 128, meta: '강남/서초 집중 · 평균 22분' },
+      { rider_id: 'r-002', rider_name: '이서연', user_id: 'u-rider-002', role: 'rider', account_status: 'active', done: 121, meta: '송파/강남 · 평균 24분' },
+      { rider_id: 'r-003', rider_name: '박지훈', user_id: 'u-rider-003', role: 'rider', account_status: 'active', done: 116, meta: '서초/용산 · 평균 25분' },
+      { rider_id: 'r-004', rider_name: '최하늘', user_id: 'u-rider-004', role: 'rider', account_status: 'pending', done: 0, meta: '신규 가입 승인대기' },
+      { rider_id: 'r-005', rider_name: '정도윤', user_id: 'u-rider-005', role: 'rider', account_status: 'inactive', done: 24, meta: '휴면/비활성 계정' }
+    ];
+
+    const riderWeeklyStats = {
+      'r-001': { total: 128, done: 112, progress: 9, cancel: 1, delay: 6, settlement: 428000, distance: 497.6, avgDuration: 22, week: '2026-W22 · 5/27(수)~6/2(화)' }
+    };
+
+    const orders = [
+      { week_label:'2026-W22', order_id:'ORD-10482', rider_id:'r-001', rider_name:'김민준', order_status:'완료', created_at:'2026-05-27 10:12', completed_at:'2026-05-27 10:38', pickup_name:'강남허브', pickup_address:'서울 강남구 테헤란로 152', pickup_lat:37.5007, pickup_lng:127.0365, dropoff_address:'서울 서초구 서초대로 396', dropoff_lat:37.4978, dropoff_lng:127.0272, delivery_fee:4200, distance_km:3.8, duration_min:26, px:26, py:27, dx:63, dy:43 },
+      { week_label:'2026-W22', order_id:'ORD-10491', rider_id:'r-001', rider_name:'김민준', order_status:'진행중', created_at:'2026-05-28 12:45', completed_at:'-', pickup_name:'역삼픽업', pickup_address:'서울 강남구 논현로 508', pickup_lat:37.5039, pickup_lng:127.0407, dropoff_address:'서울 강남구 봉은사로 120', dropoff_lat:37.5067, dropoff_lng:127.0298, delivery_fee:3900, distance_km:2.9, duration_min:18, px:46, py:58, dx:74, dy:31 },
+      { week_label:'2026-W22', order_id:'ORD-10502', rider_id:'r-002', rider_name:'이서연', order_status:'지연', created_at:'2026-05-28 13:17', completed_at:'-', pickup_name:'잠실센터', pickup_address:'서울 송파구 올림픽로 240', pickup_lat:37.5111, pickup_lng:127.0981, dropoff_address:'서울 강남구 삼성로 512', dropoff_lat:37.5079, dropoff_lng:127.0550, delivery_fee:5200, distance_km:5.4, duration_min:41, px:78, py:68, dx:51, dy:40 },
+      { week_label:'2026-W22', order_id:'ORD-10518', rider_id:'r-003', rider_name:'박지훈', order_status:'완료', created_at:'2026-05-29 09:06', completed_at:'2026-05-29 09:31', pickup_name:'서초스테이션', pickup_address:'서울 서초구 반포대로 222', pickup_lat:37.5002, pickup_lng:127.0123, dropoff_address:'서울 용산구 이태원로 29', dropoff_lat:37.5326, dropoff_lng:126.9900, delivery_fee:6100, distance_km:6.8, duration_min:25, px:35, py:72, dx:17, dy:44 },
+      { week_label:'2026-W22', order_id:'ORD-10532', rider_id:'r-002', rider_name:'이서연', order_status:'취소', created_at:'2026-05-29 14:22', completed_at:'-', pickup_name:'선릉픽업', pickup_address:'서울 강남구 선릉로 428', pickup_lat:37.5044, pickup_lng:127.0489, dropoff_address:'주소 누락', dropoff_lat:null, dropoff_lng:null, delivery_fee:0, distance_km:0, duration_min:0, px:61, py:66, dx:88, dy:22 },
+      { week_label:'2026-W22', order_id:'ORD-10544', rider_id:'r-001', rider_name:'김민준', order_status:'완료', created_at:'2026-05-29 15:08', completed_at:'2026-05-29 15:29', pickup_name:'논현픽업', pickup_address:'서울 강남구 학동로 201', pickup_lat:37.5146, pickup_lng:127.0310, dropoff_address:'서울 서초구 사평대로 205', dropoff_lat:37.5063, dropoff_lng:127.0101, delivery_fee:4800, distance_km:4.2, duration_min:21, px:37, py:38, dx:24, dy:61 }
+    ];
+
+    const schemaFields = [
+      ['week_label','수요일~다음주 화요일 기준 주차 라벨'], ['order_id','오더 고유 ID 및 중복 처리 기준'], ['rider_id','라이더 계정/오더 매칭 키'], ['rider_name','라이더 표시명'], ['order_status','완료/진행중/취소/지연'], ['created_at','오더 생성 시각'], ['completed_at','완료 시각'], ['pickup_name','픽업 지점명'], ['pickup_address','픽업 주소'], ['pickup_lat','픽업 위도'], ['pickup_lng','픽업 경도'], ['dropoff_address','도착 주소'], ['dropoff_lat','도착 위도'], ['dropoff_lng','도착 경도'], ['delivery_fee','배달 수수료/정산 확장'], ['distance_km','거리 분석'], ['duration_min','소요 시간 분석'], ['user_id','회원 계정 ID'], ['account_status','활성/비활성/승인대기'], ['role','admin/rider 권한']
+    ];
+
+    const mappingCopy = {
+      week_label:'주차 구분', order_id:'주문 고유번호', rider_id:'라이더 매칭', rider_name:'표시명', order_status:'상태 인식', created_at:'생성시각', completed_at:'완료시각', pickup_name:'픽업명', pickup_address:'픽업주소', pickup_lat:'픽업 위도', pickup_lng:'픽업 경도', dropoff_address:'도착주소', dropoff_lat:'도착 위도', dropoff_lng:'도착 경도', delivery_fee:'정산 확장', distance_km:'거리', duration_min:'소요시간'
+    };
+
+    const el = (sel) => document.querySelector(sel);
+    const els = (sel) => Array.from(document.querySelectorAll(sel));
+    const fmtWon = (n) => '₩' + Number(n).toLocaleString('ko-KR');
+    const fmtMan = (n) => (Number(n) / 10000).toFixed(1).replace('.0','') + '만';
+    function currentRider(){ return riders.find(r => r.rider_id === state.currentRiderId) || riders[0]; }
+    function myOrdersAll(){ return orders.filter(o => o.rider_id === state.currentRiderId); }
+    function myOrdersFiltered(){
+      const list = myOrdersAll();
+      return state.statusFilter && state.statusFilter !== 'all' ? list.filter(o => o.order_status === state.statusFilter) : list;
+    }
+    function myActiveOrder(){ return myOrdersAll().find(o => o.order_status === '진행중') || myOrdersAll()[0]; }
+    function isOwnOrderId(orderId){ return myOrdersAll().some(o => o.order_id === orderId); }
+
+    function statusClass(status){
+      return status === '완료' ? 'done' : status === '진행중' ? 'progress' : status === '취소' ? 'cancel' : 'delay';
+    }
+    function markerClass(status, kind){
+      if(status === '취소') return 'cancel';
+      if(status === '지연') return 'delay';
+      return kind;
+    }
+    function initials(name){ return (name || '?').slice(0,1); }
+
+    function setRole(role){
+      state.role = role;
+      document.body.dataset.role = role;
+      els('[data-switch-role]').forEach(b => b.classList.toggle('active', b.dataset.switchRole === role));
+      if(role === 'rider') {
+        state.selectedRiderId = state.currentRiderId;
+        state.statusFilter = 'all';
+        const active = myActiveOrder();
+        if(active) {
+          state.selectedOrderId = active.order_id;
+          state.focusedOrderId = active.order_id;
+        }
+        if(blockedForRiderScreens.includes(state.screen)) navigate('riderHome');
+      }
+      if(role === 'admin' && riderOnlyScreens.includes(state.screen)) {
+        navigate('adminDashboard');
+      }
+      renderNavs();
+      renderBottomNav();
+      renderHeader();
+      renderDynamic();
+    }
+
+    function navigate(screen, opts={}){
+      let nextScreen = screen;
+      const isAuthScreen = !!screens[nextScreen]?.auth;
+      if(state.role === 'rider' && !isAuthScreen) {
+        state.selectedRiderId = state.currentRiderId;
+        if(blockedForRiderScreens.includes(nextScreen)) {
+          nextScreen = 'riderHome';
+          opts.toast = opts.toast || '라이더 권한에서는 내 데이터 화면만 볼 수 있습니다.';
+        }
+        if(nextScreen === 'orderDetail' && opts.orderId && !isOwnOrderId(opts.orderId)) {
+          const fallback = myActiveOrder();
+          opts.orderId = fallback?.order_id;
+          opts.toast = '본인 오더만 조회할 수 있습니다.';
+        }
+      }
+      if(state.role === 'admin' && riderOnlyScreens.includes(nextScreen)) {
+        nextScreen = 'adminDashboard';
+      }
+      if (opts.riderId && state.role === 'admin') state.selectedRiderId = opts.riderId;
+      if (opts.orderId) { state.selectedOrderId = opts.orderId; state.focusedOrderId = opts.orderId; }
+      if (opts.status) state.statusFilter = opts.status;
+      if (nextScreen === 'orderDetail' && !opts.orderId) {
+        if(state.role === 'rider') state.selectedOrderId = isOwnOrderId(state.selectedOrderId) ? state.selectedOrderId : (myActiveOrder()?.order_id || 'ORD-10482');
+        else state.selectedOrderId = state.selectedOrderId || 'ORD-10482';
+      }
+      state.screen = nextScreen;
+      els('.screen').forEach(s => s.classList.toggle('active', s.dataset.screen === nextScreen));
+      const body = el('#screenBody');
+      body.scrollTop = 0;
+      body.classList.toggle('no-bottom', screens[nextScreen]?.auth);
+      renderHeader();
+      renderNavs();
+      renderBottomNav();
+      renderDynamic();
+      closeDrawer();
+      if(opts.toast) showToast(opts.toast);
+    }
+
+    function renderHeader(){
+      const cfg = screens[state.screen] || screens.login;
+      el('#screenTitle').textContent = cfg.title;
+      el('#screenSubtitle').textContent = cfg.subtitle;
+      el('#screenEyebrow').textContent = cfg.eyebrow;
+      el('#roleChip').textContent = state.role;
+      el('#appHeader').style.display = cfg.auth ? 'none' : 'block';
+      el('#bottomNav').style.display = cfg.auth ? 'none' : 'grid';
+    }
+
+    function navButton(id, label, index){
+      return `<button data-go="${id}" class="${state.screen===id?'active':''}"><span>${label}</span><small>${String(index+1).padStart(2,'0')}</small></button>`;
+    }
+    function renderNavs(){
+      el('#authNav').innerHTML = navGroups.auth.map((n,i)=>navButton(n[0],n[1],i)).join('');
+      el('#adminNav').innerHTML = navGroups.admin.map((n,i)=>navButton(n[0],n[1],i)).join('');
+      el('#riderNav').innerHTML = navGroups.rider.map((n,i)=>navButton(n[0],n[1],i)).join('');
+      el('#handoffNav').innerHTML = navGroups.handoff.map((n,i)=>navButton(n[0],n[1],i)).join('');
+      const adminVisible = state.role === 'admin';
+      const riderVisible = state.role === 'rider';
+      const handoffVisible = state.role === 'admin';
+      const setDisplay = (selector, visible) => els(selector).forEach(node => node.style.display = visible ? '' : 'none');
+      setDisplay('[data-nav-title="admin"], #adminNav', adminVisible);
+      setDisplay('[data-nav-title="rider"], #riderNav', riderVisible);
+      setDisplay('[data-nav-title="handoff"], #handoffNav', handoffVisible);
+    }
+
+    function renderBottomNav(){
+      const nav = state.role === 'admin'
+        ? [ ['adminDashboard','대시보드','▦'], ['excelUpload','업로드','⇧'], ['uploadSummary','검수','□'], ['coachingInsight','코칭','✦'], ['accountManage','더보기','☰'] ]
+        : [ ['riderHome','내현황','▦'], ['riderOrders','내오더','☰'], ['riderMapSelf','내지도','⌖'], ['riderCoaching','내코칭','✦'], ['riderProfile','MY','👤'] ];
+      el('#bottomNav').innerHTML = nav.map(([id,label,icon]) => `<button data-go="${id}" class="${state.screen===id?'active':''}"><span>${icon}</span>${label}</button>`).join('');
+    }
+
+    function orderCard(o, opts={}){
+      const side = opts.side || `${o.duration_min || '-'}분`;
+      const riderView = opts.riderView || state.role === 'rider';
+      const ownerLabel = riderView ? '내 오더' : o.rider_name;
+      const addressLine = `${ownerLabel} · ${o.pickup_address} → ${o.dropoff_address}`;
+      return `<div class="order-item click-card" data-order-id="${o.order_id}" data-go="orderDetail">
+        <div class="avatar ${statusClass(o.order_status)==='done'?'green':statusClass(o.order_status)==='cancel'?'red':''}">${o.order_status === '완료' ? '✓' : o.order_status === '취소' ? '!' : '…'}</div>
+        <div class="item-main"><strong>${o.order_id} · ${o.pickup_name}</strong><span>${addressLine}</span></div>
+        <div class="item-side"><span class="status-chip ${statusClass(o.order_status)}">${o.order_status}</span><span>${side}</span></div>
+      </div>`;
+    }
+
+    function renderRanking(){
+      const top = riders.slice(0,3);
+      el('#riderRanking').innerHTML = top.map((r, idx)=>`<div class="rank-item click-card" data-go="riderDetail" data-rider-id="${r.rider_id}">
+        <div class="avatar ${idx===0?'purple':''}">${idx+1}</div>
+        <div class="item-main"><strong>${r.rider_name}</strong><span>${r.rider_id} · ${r.meta}</span></div>
+        <div class="item-side"><strong>${r.done}</strong><span>완료 콜</span></div>
+      </div>`).join('');
+    }
+
+    function renderOrders(){
+      const recent = orders.slice(0,5);
+      if(el('#recentOrders')) el('#recentOrders').innerHTML = recent.map(o=>orderCard(o)).join('');
+      if(el('#weeklyMapOrders')) el('#weeklyMapOrders').innerHTML = filteredOrdersForWeekly().map(o=>orderCard(o, {side:'지도 포커스'})).join('');
+      const riderOrders = orders.filter(o=>o.rider_id === state.selectedRiderId);
+      if(el('#riderOrders')) el('#riderOrders').innerHTML = riderOrders.map(o=>orderCard(o)).join('');
+      const mine = myOrdersAll();
+      const mineFiltered = myOrdersFiltered();
+      if(el('#myOrders')) el('#myOrders').innerHTML = mine.slice(0,3).map(o=>orderCard(o, {riderView:true})).join('');
+      if(el('#selfMapOrders')) el('#selfMapOrders').innerHTML = mineFiltered.map(o=>orderCard(o, {side:'지도 포커스', riderView:true})).join('');
+      if(el('#riderOrdersScreenList')) el('#riderOrdersScreenList').innerHTML = mineFiltered.map(o=>orderCard(o, {side:'상세', riderView:true})).join('');
+      if(el('#riderOrdersCaption')) el('#riderOrdersCaption').textContent = `${state.statusFilter === 'all' ? '전체 상태' : state.statusFilter} · 내 주문만 표시`;
+      if(el('#riderSettlementList')) {
+        el('#riderSettlementList').innerHTML = mine.map(o=>`<div class="settlement-row" data-order-id="${o.order_id}" data-go="orderDetail">
+          <div><strong>${o.order_id} · ${o.pickup_name}</strong><span>${o.order_status} · ${o.distance_km}km · ${o.duration_min}분</span></div>
+          <strong>${fmtWon(o.delivery_fee)}</strong>
+        </div>`).join('');
+      }
+    }
+
+    function filteredOrdersForWeekly(){
+      if(state.statusFilter && state.statusFilter !== 'all') return orders.filter(o=>o.order_status === state.statusFilter);
+      return orders;
+    }
+
+    function renderMap(containerId, type, list, focusedId){
+      const container = el('#'+containerId);
+      if(!container) return;
+      const focused = list.find(o=>o.order_id === focusedId) || list[0] || orders[0];
+      let paths = '';
+      let markers = '';
+      list.forEach((o, i) => {
+        const cls = statusClass(o.order_status);
+        const color = o.order_status === '완료' ? '#12b76a' : o.order_status === '취소' ? '#f04438' : o.order_status === '지연' ? '#f79009' : '#2563eb';
+        const sw = o.order_id === focusedId ? 4.5 : 2.5;
+        const opacity = o.order_id === focusedId ? 0.96 : 0.38;
+        paths += `<path d="M ${o.px} ${o.py} C ${(o.px+o.dx)/2} ${o.py-18+i*5}, ${(o.px+o.dx)/2} ${o.dy+18-i*3}, ${o.dx} ${o.dy}" stroke="${color}" stroke-width="${sw}" fill="none" stroke-linecap="round" opacity="${opacity}" />`;
+        markers += `<button class="marker ${markerClass(o.order_status,'pickup')} ${o.order_id===focusedId?'focused':''}" style="left:${o.px}%; top:${o.py}%;" data-order-id="${o.order_id}" title="${o.order_id} 픽업">P</button>`;
+        markers += `<button class="marker ${markerClass(o.order_status,'dropoff')} ${o.order_id===focusedId?'focused':''}" style="left:${o.dx}%; top:${o.dy}%;" data-order-id="${o.order_id}" title="${o.order_id} 도착">D</button>`;
+      });
+      const typeLabel = type === 'weekly' ? '주간 전체맵' : type === 'rider' ? (state.role === 'rider' ? '내 지도' : '라이더별 맵') : '오더 상세맵';
+      const dataLabel = type === 'weekly' ? `${list.length}개 오더` : type === 'rider' ? (state.role === 'rider' ? '본인 오더만' : `${focused?.rider_name || '라이더'} 전용`) : `${focused?.order_id || ''}`;
+      container.innerHTML = `
+        <div class="map-canvas"></div>
+        <div class="map-area" style="left:10%;top:20%;width:34%;height:18%;"></div>
+        <div class="map-area" style="right:9%;bottom:20%;width:38%;height:22%;"></div>
+        <svg class="route-svg" viewBox="0 0 100 100" preserveAspectRatio="none">${paths}</svg>
+        ${markers}
+        <div class="map-toolbar"><span class="map-pill">${typeLabel}</span><span class="map-pill">${dataLabel}</span></div>
+        <div class="map-bottom-card">
+          <div class="item-main"><strong>${focused?.order_id || 'ORD'} · ${focused?.pickup_name || '픽업'}</strong><span>${focused?.pickup_address || ''} → ${focused?.dropoff_address || ''}</span></div>
+          <div class="map-legend"><span class="legend-dot">픽업</span><span class="legend-dot green">도착</span><span class="legend-dot orange">지연</span><span class="legend-dot red">취소</span></div>
+        </div>`;
+    }
+
+    function renderRiderDetail(){
+      const r = riders.find(x=>x.rider_id === state.selectedRiderId) || riders[0];
+      if(el('#riderAvatar')) el('#riderAvatar').textContent = initials(r.rider_name);
+      if(el('#riderDetailName')) el('#riderDetailName').textContent = r.rider_name;
+      if(el('#riderDetailMeta')) el('#riderDetailMeta').textContent = `${r.rider_id} · ${r.account_status}`;
+      if(el('#riderDoneCount')) el('#riderDoneCount').textContent = `${r.done}콜`;
+    }
+
+    function renderRiderHome(){
+      const rider = currentRider();
+      const stats = riderWeeklyStats[state.currentRiderId];
+      const active = myActiveOrder();
+      const activeStatus = active ? statusClass(active.order_status) : 'progress';
+      if(el('#riderHomeGreeting')) el('#riderHomeGreeting').textContent = `${rider.rider_name}님, 이번 주 운행 현황`;
+      if(el('#riderHomeScope')) el('#riderHomeScope').textContent = `${stats.week} · 내 오더만 표시`;
+      if(el('#riderHeroTotal')) el('#riderHeroTotal').textContent = stats.total;
+      if(el('#riderHeroDone')) el('#riderHeroDone').textContent = stats.done;
+      if(el('#riderHeroFee')) el('#riderHeroFee').textContent = fmtMan(stats.settlement);
+      if(el('#riderKpiTotal')) el('#riderKpiTotal').textContent = stats.total;
+      if(el('#riderKpiDone')) el('#riderKpiDone').textContent = stats.done;
+      if(el('#riderKpiProgress')) el('#riderKpiProgress').textContent = stats.progress;
+      if(el('#riderKpiCancel')) el('#riderKpiCancel').textContent = stats.cancel;
+      if(el('#riderKpiSettlement')) el('#riderKpiSettlement').textContent = (stats.settlement / 10000).toFixed(1);
+      if(el('#riderDoneRate')) el('#riderDoneRate').textContent = `${Math.round(stats.done / stats.total * 100)}%`;
+      if(el('#riderHomeSettlement')) el('#riderHomeSettlement').textContent = fmtWon(stats.settlement);
+      if(el('#riderHomeDistance')) el('#riderHomeDistance').textContent = `${stats.distance}km`;
+      if(el('#riderListDone')) el('#riderListDone').textContent = stats.done;
+      if(el('#riderListProgress')) el('#riderListProgress').textContent = stats.progress;
+      if(el('#riderListCancel')) el('#riderListCancel').textContent = stats.cancel;
+      if(el('#riderListDelay')) el('#riderListDelay').textContent = stats.delay;
+      if(el('#riderSettlementAmount')) el('#riderSettlementAmount').textContent = fmtWon(stats.settlement);
+      if(el('#riderActiveOrderCard') && active) {
+        el('#riderActiveOrderCard').innerHTML = `
+          <div class="card-title-row"><div><h3>현재 진행중 오더</h3><p class="card-desc">다음으로 확인해야 할 픽업/도착 정보</p></div><span class="status-chip ${activeStatus}">${active.order_status}</span></div>
+          <div class="task-route"><div class="task-route-dot"></div><div class="task-route-text"><strong>${active.pickup_name}</strong><span>${active.pickup_address}</span></div></div>
+          <div class="task-route"><div class="task-route-dot green"></div><div class="task-route-text"><strong>도착지</strong><span>${active.dropoff_address}</span></div></div>
+          <div class="detail-grid" style="margin-bottom:12px;">
+            <div class="detail-cell"><span>거리</span><strong>${active.distance_km}km</strong></div>
+            <div class="detail-cell"><span>예상 소요</span><strong>${active.duration_min}분</strong></div>
+          </div>
+          <div class="btn-row"><button class="btn ghost" data-go="orderDetail" data-order-id="${active.order_id}">상세 보기</button><button class="btn" data-go="riderMapSelf">지도 보기</button></div>`;
+      }
+    }
+
+    function renderOrderDetail(){
+      const ownOrders = state.role === 'rider' ? orders.filter(o=>o.rider_id === 'r-001') : orders;
+      let o = ownOrders.find(x=>x.order_id === state.selectedOrderId) || ownOrders[0];
+      state.selectedOrderId = o.order_id;
+      el('#orderDetailTitle').textContent = o.order_id;
+      el('#orderDetailSub').textContent = state.role === 'rider' ? `${o.week_label} · 내 오더 · ${o.pickup_name}` : `${o.week_label} · ${o.rider_name} · ${o.pickup_name}`;
+      el('#orderStatusChip').className = `status-chip ${statusClass(o.order_status)}`;
+      el('#orderStatusChip').textContent = o.order_status;
+      const detailPairs = state.role === 'rider' ? [
+        ['week_label', o.week_label], ['order_id', o.order_id], ['order_status', o.order_status], ['created_at', o.created_at],
+        ['completed_at', o.completed_at], ['pickup_name', o.pickup_name], ['pickup_address', o.pickup_address], ['dropoff_address', o.dropoff_address],
+        ['delivery_fee', fmtWon(o.delivery_fee)], ['distance_km', `${o.distance_km}km`], ['duration_min', `${o.duration_min}분`]
+      ] : [
+        ['week_label', o.week_label], ['rider_id', o.rider_id], ['rider_name', o.rider_name], ['order_status', o.order_status],
+        ['created_at', o.created_at], ['completed_at', o.completed_at], ['pickup_address', o.pickup_address], ['dropoff_address', o.dropoff_address],
+        ['pickup_lat/lng', `${o.pickup_lat ?? '누락'}, ${o.pickup_lng ?? '누락'}`], ['dropoff_lat/lng', `${o.dropoff_lat ?? '누락'}, ${o.dropoff_lng ?? '누락'}`],
+        ['delivery_fee', fmtWon(o.delivery_fee)], ['distance_km', `${o.distance_km}km`], ['duration_min', `${o.duration_min}분`]
+      ];
+      el('#orderDetailGrid').innerHTML = detailPairs.map(([k,v])=>`<div class="detail-cell"><span>${k}</span><strong>${v}</strong></div>`).join('');
+      el('#orderTimeline').innerHTML = `
+        <div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-text"><strong>오더 생성</strong><span>${o.created_at}</span></div></div>
+        <div class="timeline-item"><div class="timeline-dot orange"></div><div class="timeline-text"><strong>픽업 지점 확인</strong><span>${o.pickup_name} · ${o.pickup_address}</span></div></div>
+        <div class="timeline-item"><div class="timeline-dot green"></div><div class="timeline-text"><strong>${o.order_status === '완료' ? '배송 완료' : '현재 상태: '+o.order_status}</strong><span>${o.completed_at}</span></div></div>`;
+      renderMap('orderMapCanvas', 'order', [o], o.order_id);
+    }
+
+    function renderMappingFields(){
+      if(!el('#mappingFields')) return;
+      const keys = Object.keys(mappingCopy);
+      el('#mappingFields').innerHTML = keys.map(k=>`<div class="map-field"><code>${k}</code><span>${mappingCopy[k]}</span></div>`).join('');
+    }
+
+    function renderPreviewRows(){
+      if(!el('#previewRows')) return;
+      el('#previewRows').innerHTML = orders.slice(0,4).map(o=>`<tr><td>${o.order_id}</td><td>${o.rider_name}</td><td>${o.order_status}</td><td>${o.pickup_lat && o.dropoff_lat ? 'OK' : '확인'}</td></tr>`).join('');
+    }
+
+    function renderAccounts(){
+      if(!el('#accountList')) return;
+      el('#accountList').innerHTML = riders.map(r=>`<div class="account-item">
+        <div class="avatar ${r.account_status==='active'?'green':r.account_status==='pending'?'purple':''}">${initials(r.rider_name)}</div>
+        <div class="item-main"><strong>${r.rider_name} · ${r.rider_id}</strong><span>${r.user_id} · role=${r.role}</span></div>
+        <div class="item-side"><span class="status-chip ${r.account_status==='active'?'done':r.account_status==='pending'?'wait':'inactive'}">${r.account_status==='active'?'활성':r.account_status==='pending'?'승인대기':'비활성'}</span><span>상태 변경</span></div>
+      </div>`).join('');
+    }
+
+    function renderSchema(){
+      if(!el('#schemaList')) return;
+      el('#schemaList').innerHTML = schemaFields.map(([k,v])=>`<div class="schema-item"><div class="avatar">{ }</div><div class="item-main"><code>${k}</code><span>${v}</span></div></div>`).join('');
+    }
+
+    function renderDynamic(){
+      renderRanking();
+      renderOrders();
+      renderRiderDetail();
+      renderRiderHome();
+      renderMappingFields();
+      renderPreviewRows();
+      renderAccounts();
+      renderSchema();
+      renderMap('weeklyMapCanvas', 'weekly', filteredOrdersForWeekly(), state.focusedOrderId);
+      renderMap('riderMapCanvas', 'rider', orders.filter(o=>o.rider_id === state.selectedRiderId), state.focusedOrderId);
+      renderMap('riderHomeMap', 'rider', myOrdersAll(), state.focusedOrderId);
+      renderMap('selfMapCanvas', 'rider', myOrdersFiltered(), state.focusedOrderId);
+      if(state.screen === 'orderDetail') renderOrderDetail();
+    }
+
+    function showToast(message){
+      const t = el('#toast');
+      t.textContent = message;
+      t.classList.add('show');
+      setTimeout(()=>t.classList.remove('show'), 2300);
+    }
+
+    function openDrawer(type){
+      let title = '필터';
+      let body = '';
+      if(type === 'rider') {
+        title = state.role === 'rider' ? '내 계정' : '라이더 선택';
+        body = state.role === 'rider'
+          ? `<div class="privacy-line">라이더 권한에서는 타 라이더 선택이 비활성화됩니다. 현재 rider_id=${state.currentRiderId} 데이터만 조회합니다.</div>`
+          : riders.map(r=>`<button class="btn ghost" style="margin-bottom:8px" data-go="riderDetail" data-rider-id="${r.rider_id}">${r.rider_name} · ${r.rider_id}</button>`).join('');
+      } else if(type === 'status') {
+        title = '상태 선택';
+        body = ['all','완료','진행중','취소','지연'].map(s=>`<button class="btn ghost" style="margin-bottom:8px" data-status-filter="${s}">${s==='all'?'전체':s}</button>`).join('');
+      } else if(type === 'time') {
+        title = '시간대 선택';
+        body = ['09-12','12-15','15-18','18-21'].map(s=>`<button class="btn ghost" style="margin-bottom:8px">${s}</button>`).join('');
+      } else {
+        title = '지역 선택';
+        body = ['강남','서초','송파','용산'].map(s=>`<button class="btn ghost" style="margin-bottom:8px">${s}</button>`).join('');
+      }
+      el('#drawerContent').innerHTML = `<div class="card-title-row"><div><h3>${title}</h3><p class="card-desc">프로토타입 필터 바텀시트</p></div><button class="icon-btn" data-close-drawer>×</button></div>${body}`;
+      el('#drawerOverlay').classList.add('open');
+    }
+    function closeDrawer(){ el('#drawerOverlay').classList.remove('open'); }
+
+    document.addEventListener('click', (e)=>{
+      const roleBtn = e.target.closest('[data-switch-role]');
+      if(roleBtn) return setRole(roleBtn.dataset.switchRole);
+
+      const loginRole = e.target.closest('[data-login-role]');
+      if(loginRole) {
+        state.loginRole = loginRole.dataset.loginRole;
+        els('[data-login-role]').forEach(b=>b.classList.toggle('active', b.dataset.loginRole === state.loginRole));
+        el('#loginId').value = state.loginRole === 'admin' ? 'admin@rccenter.kr' : 'rider001';
+        return;
+      }
+
+      if(e.target.closest('#loginSubmit')) {
+        setRole(state.loginRole);
+        return navigate(state.loginRole === 'admin' ? 'adminDashboard' : 'riderHome', { toast: `${state.loginRole === 'admin' ? '관리자' : '라이더'} 권한으로 로그인했습니다.` });
+      }
+
+      const filter = e.target.closest('[data-open-filter]');
+      if(filter) return openDrawer(filter.dataset.openFilter);
+
+      const statusFilter = e.target.closest('[data-status-filter]');
+      if(statusFilter) {
+        state.statusFilter = statusFilter.dataset.statusFilter;
+        closeDrawer();
+        const target = state.role === 'rider' ? (state.screen === 'riderMapSelf' ? 'riderMapSelf' : 'riderOrders') : 'weeklyMap';
+        return navigate(target, { toast: `상태 필터: ${state.statusFilter === 'all' ? '전체' : state.statusFilter}` });
+      }
+
+      const close = e.target.closest('[data-close-drawer]');
+      if(close || e.target.id === 'drawerOverlay') return closeDrawer();
+
+      const marker = e.target.closest('.marker');
+      if(marker) {
+        state.focusedOrderId = marker.dataset.orderId;
+        state.selectedOrderId = marker.dataset.orderId;
+        renderDynamic();
+        return showToast(`${marker.dataset.orderId}로 지도 포커스 이동`);
+      }
+
+      const go = e.target.closest('[data-go]');
+      if(go) {
+        const opts = {};
+        if(go.dataset.riderId) opts.riderId = go.dataset.riderId;
+        if(go.dataset.orderId) opts.orderId = go.dataset.orderId;
+        if(go.dataset.kpi && go.dataset.kpi !== 'all') opts.status = go.dataset.kpi;
+        if(go.dataset.go === 'orderDetail') {
+          const parentOrder = go.closest('[data-order-id]');
+          if(parentOrder) opts.orderId = parentOrder.dataset.orderId;
+        }
+        return navigate(go.dataset.go, opts);
+      }
+    });
+
+    el('#menuBtn').addEventListener('click', ()=>{
+      const current = state.role === 'admin' ? navGroups.admin.concat(navGroups.handoff) : navGroups.rider;
+      const body = current.map(([id,label])=>`<button class="btn ghost" style="margin-bottom:8px" data-go="${id}">${label}</button>`).join('') + `<button class="btn secondary" data-go="login">로그아웃</button>`;
+      el('#drawerContent').innerHTML = `<div class="card-title-row"><div><h3>화면 이동</h3><p class="card-desc">모바일 내 드로어 메뉴</p></div><button class="icon-btn" data-close-drawer>×</button></div>${body}`;
+      el('#drawerOverlay').classList.add('open');
+    });
+
+    renderNavs();
+    renderHeader();
+    renderBottomNav();
+    renderDynamic();
+  </script>
+</body>
+</html>
