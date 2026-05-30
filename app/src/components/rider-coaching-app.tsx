@@ -52,6 +52,14 @@ import {
   type UploadIssueType,
 } from "@/lib/excel-upload";
 import {
+  createOperationLogFromFileName,
+  createOperationLogFromParseResult,
+  findLastAppliedLog,
+  sortOperationLogsNewestFirst,
+  type OperationLogEntry,
+  type OperationLogType,
+} from "@/lib/operation-log";
+import {
   applyParsedUploadPreview,
   cancelParsedUploadPreview,
   createWeekDataUploadState,
@@ -89,6 +97,22 @@ const uploadIssueLabels: Record<UploadIssueType, string> = {
   rider_name_missing: "이름 누락",
   order_number_missing: "주문번호 누락",
   time_value_missing: "시간값 누락",
+};
+const operationLogLabels: Record<OperationLogType, string> = {
+  upload_preview_created: "미리보기",
+  upload_applied: "반영",
+  upload_cancelled: "취소",
+  upload_rejected: "차단",
+  sheet_missing: "시트 누락",
+  parse_failed: "파싱 실패",
+};
+const operationLogTone: Record<OperationLogType, string> = {
+  upload_preview_created: "bg-blue-50 text-blue-700",
+  upload_applied: "bg-emerald-50 text-emerald-700",
+  upload_cancelled: "bg-slate-100 text-slate-600",
+  upload_rejected: "bg-rose-50 text-rose-700",
+  sheet_missing: "bg-amber-50 text-amber-800",
+  parse_failed: "bg-rose-50 text-rose-700",
 };
 
 function ScreenHeader({
@@ -322,7 +346,19 @@ function AppChrome({
   );
 }
 
-function AdminDashboard({ weekData }: { weekData: LatestUploadedWeekData }) {
+function formatLogTime(value?: string | null) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("ko-KR", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function AdminDashboard({ weekData, lastAppliedLog }: { weekData: LatestUploadedWeekData; lastAppliedLog: OperationLogEntry | null }) {
   const summary = getAdminDashboardSummary(weekData);
   const topCompleted = Math.max(...weekData.metrics.map((metric) => metric.completedCount), 1);
   return (
@@ -357,6 +393,9 @@ function AdminDashboard({ weekData }: { weekData: LatestUploadedWeekData }) {
           <div className="flex justify-between"><span className="text-slate-500">기준 주차</span><strong>{weekData.weekLabel}</strong></div>
           <div className="flex justify-between"><span className="text-slate-500">기본 시트</span><strong>오더별 상세 내역서</strong></div>
           <div className="flex justify-between"><span className="text-slate-500">파싱 상태</span><strong className={weekData.source === "uploaded" ? "text-emerald-700" : "text-amber-700"}>{weekData.source === "uploaded" ? "앱 화면 적용됨" : "업로드 대기"}</strong></div>
+          <div className="flex justify-between gap-3"><span className="text-slate-500">마지막 반영 파일</span><strong className="text-right">{lastAppliedLog?.sourceFileName ?? "-"}</strong></div>
+          <div className="flex justify-between"><span className="text-slate-500">마지막 반영 주차</span><strong>{lastAppliedLog?.weekLabel ?? "-"}</strong></div>
+          <div className="flex justify-between"><span className="text-slate-500">마지막 반영 시간</span><strong>{formatLogTime(lastAppliedLog?.createdAt)}</strong></div>
         </div>
       </Panel>
     </>
@@ -369,12 +408,14 @@ function AdminUpload({
   onParsedUploadPreviewChange,
   onApplyUploadPreview,
   onCancelUploadPreview,
+  onOperationLog,
 }: {
   weekData: LatestUploadedWeekData;
   parsedUploadPreview: OrderDetailParseResult | null;
   onParsedUploadPreviewChange: (result: OrderDetailParseResult | null) => void;
   onApplyUploadPreview: () => void;
   onCancelUploadPreview: () => void;
+  onOperationLog: (log: OperationLogEntry) => void;
 }) {
   const [selectedFileName, setSelectedFileName] = useState("");
   const [sheetNames, setSheetNames] = useState<string[]>([]);
@@ -387,6 +428,9 @@ function AdminUpload({
   const issueRowCount = parsedUploadPreview ? new Set(parsedUploadPreview.issues.map((issue) => issue.rowNumber)).size : 0;
 
   function resetPreviewUi() {
+    if (parsedUploadPreview) {
+      onOperationLog(createOperationLogFromParseResult({ type: "upload_cancelled", parseResult: parsedUploadPreview }));
+    }
     onCancelUploadPreview();
     setSelectedFileName("");
     setSheetNames([]);
@@ -397,6 +441,7 @@ function AdminUpload({
   function handleApplyPreview() {
     if (parsedUploadPreview?.status !== "ready") return;
     onApplyUploadPreview();
+    onOperationLog(createOperationLogFromParseResult({ type: "upload_applied", parseResult: parsedUploadPreview }));
     setSelectedFileName("");
     setSheetNames([]);
     setParseMessage("이번 주차 데이터로 반영했습니다.");
@@ -417,6 +462,7 @@ function AdminUpload({
     setSelectedFileName(file.name);
     const validation = validateUploadFileName(file.name);
     if (!validation.ok) {
+      onOperationLog(createOperationLogFromFileName({ type: "upload_rejected", sourceFileName: file.name }));
       setParseMessage(`${validation.message} 기존 적용 데이터는 유지됩니다.`);
       return;
     }
@@ -430,6 +476,7 @@ function AdminUpload({
 
       const sheet = workbook.Sheets[ORDER_DETAIL_SHEET_NAME];
       if (!sheet) {
+        onOperationLog(createOperationLogFromFileName({ type: "sheet_missing", sourceFileName: file.name }));
         setParseMessage(`기본 시트 "${ORDER_DETAIL_SHEET_NAME}"를 찾을 수 없습니다. 기존 적용 데이터는 유지됩니다.`);
         return;
       }
@@ -443,7 +490,9 @@ function AdminUpload({
       const result = parseOrderDetailRows({ fileName: file.name, rows });
       onParsedUploadPreviewChange(result);
       setParseMessage(result.errorMessage ?? (result.status === "ready" ? "파싱/검수 미리보기를 생성했습니다. 아직 앱 전체에 반영되지 않았습니다." : "파싱 결과를 확인해 주세요."));
+      onOperationLog(createOperationLogFromParseResult({ type: result.status === "ready" ? "upload_preview_created" : "parse_failed", parseResult: result }));
     } catch (error) {
+      onOperationLog(createOperationLogFromFileName({ type: "parse_failed", sourceFileName: file.name }));
       setParseMessage(error instanceof Error ? error.message : "엑셀 파일을 읽는 중 오류가 발생했습니다.");
     } finally {
       setIsParsing(false);
@@ -784,7 +833,8 @@ function AdminCoaching({ weekData }: { weekData: LatestUploadedWeekData }) {
   );
 }
 
-function AdminMore() {
+function AdminMore({ operationLogs }: { operationLogs: OperationLogEntry[] }) {
+  const sortedLogs = sortOperationLogsNewestFirst(operationLogs);
   return (
     <>
       <ScreenHeader eyebrow="More" title="더보기" description="자주 쓰지 않는 설정과 계정 관리를 모았습니다." />
@@ -803,6 +853,41 @@ function AdminMore() {
               <Settings size={18} className="text-slate-400" />
             </div>
           ))}
+        </div>
+      </Panel>
+      <Panel>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-black">운영 로그</h2>
+            <p className="text-sm text-slate-500">브라우저 세션 동안의 업로드 미리보기, 반영, 차단 이력입니다.</p>
+          </div>
+          <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-black text-slate-600">{sortedLogs.length}건</span>
+        </div>
+        <div className="mt-4 space-y-3">
+          {sortedLogs.length ? (
+            sortedLogs.map((log) => (
+              <div className="rounded-lg border border-slate-200 p-3" key={log.id}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <span className={`inline-flex rounded-md px-2 py-1 text-[11px] font-black ${operationLogTone[log.type]}`}>
+                      {operationLogLabels[log.type]}
+                    </span>
+                    <strong className="mt-2 block truncate text-sm text-slate-950">{log.sourceFileName}</strong>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">{log.weekLabel ?? "주차 미확인"} · {formatLogTime(log.createdAt)} · {log.actor}</p>
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-bold text-slate-600">
+                  <span>총행수 {formatNumber(log.summary.totalRows)}행</span>
+                  <span>유효 {formatNumber(log.summary.validOrderCount)}건</span>
+                  <span>확인 필요 {formatNumber(log.summary.issueRows)}행</span>
+                  <span>이슈 {formatNumber(log.summary.issueCount)}건</span>
+                  <span>라이더 {formatNumber(log.summary.riderCount)}명</span>
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="rounded-md bg-slate-50 p-3 text-sm font-bold text-slate-500">아직 운영 로그가 없습니다.</p>
+          )}
         </div>
       </Panel>
     </>
@@ -1004,16 +1089,20 @@ function AdminScreens({
   screen,
   weekData,
   parsedUploadPreview,
+  operationLogs,
   onParsedUploadPreviewChange,
   onApplyUploadPreview,
   onCancelUploadPreview,
+  onOperationLog,
 }: {
   screen: AdminScreen;
   weekData: LatestUploadedWeekData;
   parsedUploadPreview: OrderDetailParseResult | null;
+  operationLogs: OperationLogEntry[];
   onParsedUploadPreviewChange: (result: OrderDetailParseResult | null) => void;
   onApplyUploadPreview: () => void;
   onCancelUploadPreview: () => void;
+  onOperationLog: (log: OperationLogEntry) => void;
 }) {
   if (screen === "upload") {
     return (
@@ -1023,6 +1112,7 @@ function AdminScreens({
         onParsedUploadPreviewChange={onParsedUploadPreviewChange}
         onApplyUploadPreview={onApplyUploadPreview}
         onCancelUploadPreview={onCancelUploadPreview}
+        onOperationLog={onOperationLog}
       />
     );
   }
@@ -1030,8 +1120,8 @@ function AdminScreens({
   if (screen === "coaching") {
     return <AdminCoaching key={`${weekData.source}-${weekData.weekCode}-${weekData.fileName}`} weekData={weekData} />;
   }
-  if (screen === "more") return <AdminMore />;
-  return <AdminDashboard weekData={weekData} />;
+  if (screen === "more") return <AdminMore operationLogs={operationLogs} />;
+  return <AdminDashboard weekData={weekData} lastAppliedLog={findLastAppliedLog(operationLogs)} />;
 }
 
 function RiderScreens({ screen, user, weekData }: { screen: RiderScreen; user: UserSession; weekData: LatestUploadedWeekData }) {
@@ -1072,6 +1162,7 @@ export function RiderCoachingApp() {
   const [riderScreen, setRiderScreen] = useState<RiderScreen>("home");
   // 원천 엑셀에는 민감할 수 있는 운행/정산 정보가 있어 브라우저 저장소에 남기지 않는다.
   const [weekDataUploadState, setWeekDataUploadState] = useState(() => createWeekDataUploadState());
+  const [operationLogs, setOperationLogs] = useState<OperationLogEntry[]>([]);
   const { latestUploadedWeekData, parsedUploadPreview } = weekDataUploadState;
 
   const activeScreen = user?.role === "admin" ? adminScreen : riderScreen;
@@ -1093,6 +1184,10 @@ export function RiderCoachingApp() {
     setWeekDataUploadState((current) => cancelParsedUploadPreview(current));
   }
 
+  function handleOperationLog(log: OperationLogEntry) {
+    setOperationLogs((current) => [log, ...current]);
+  }
+
   if (!user) return <LoginScreen onLogin={setUser} />;
   if (user.accountStatus === "pending") return <PendingScreen user={user} onLogout={() => setUser(null)} />;
 
@@ -1103,9 +1198,11 @@ export function RiderCoachingApp() {
           screen={adminScreen}
           weekData={latestUploadedWeekData}
           parsedUploadPreview={parsedUploadPreview}
+          operationLogs={operationLogs}
           onParsedUploadPreviewChange={handleParsedUploadPreviewChange}
           onApplyUploadPreview={handleApplyUploadPreview}
           onCancelUploadPreview={handleCancelUploadPreview}
+          onOperationLog={handleOperationLog}
         />
       ) : (
         <RiderScreens screen={riderScreen} user={user} weekData={latestUploadedWeekData} />
