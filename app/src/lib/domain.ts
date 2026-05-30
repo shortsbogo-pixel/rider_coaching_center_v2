@@ -45,6 +45,8 @@ export interface RiderMetric {
 
 export interface OrderRecord {
   id: string;
+  weekCode: string;
+  weekLabel: string;
   riderId: string;
   riderName: string;
   storeName: string;
@@ -73,6 +75,11 @@ export interface CoachingMessage {
 interface TestUser extends UserSession {
   password: string;
 }
+
+export const latestUploadedWeek = {
+  weekCode: "2026_05-4",
+  weekLabel: "2026년 5월 4주차",
+};
 
 export const adminTabs: AppTab[] = [
   { key: "dashboard", label: "대시보드" },
@@ -217,6 +224,8 @@ export const riderMetrics: RiderMetric[] = [
 export const orders: OrderRecord[] = [
   {
     id: "ORD-10482",
+    weekCode: latestUploadedWeek.weekCode,
+    weekLabel: latestUploadedWeek.weekLabel,
     riderId: "r-001",
     riderName: "김수환",
     storeName: "한찜두찜 대전동구점",
@@ -232,6 +241,8 @@ export const orders: OrderRecord[] = [
   },
   {
     id: "ORD-10496",
+    weekCode: latestUploadedWeek.weekCode,
+    weekLabel: latestUploadedWeek.weekLabel,
     riderId: "r-001",
     riderName: "김수환",
     storeName: "GS25 대전꿈돌이점",
@@ -247,6 +258,8 @@ export const orders: OrderRecord[] = [
   },
   {
     id: "ORD-10503",
+    weekCode: latestUploadedWeek.weekCode,
+    weekLabel: latestUploadedWeek.weekLabel,
     riderId: "r-001",
     riderName: "김수환",
     storeName: "동구분식",
@@ -262,6 +275,8 @@ export const orders: OrderRecord[] = [
   },
   {
     id: "ORD-20411",
+    weekCode: latestUploadedWeek.weekCode,
+    weekLabel: latestUploadedWeek.weekLabel,
     riderId: "r-002",
     riderName: "박태우",
     storeName: "대전중앙버거",
@@ -320,6 +335,10 @@ export function getOrdersForUser(user: UserSession): OrderRecord[] {
   if (user.accountStatus !== "active") return [];
   if (user.role === "admin") return orders;
   return orders.filter((order) => order.riderId === user.riderId);
+}
+
+export function getLatestWeekOrdersForUser(user: UserSession): OrderRecord[] {
+  return getOrdersForUser(user).filter((order) => order.weekCode === latestUploadedWeek.weekCode);
 }
 
 export function getRiderMetricsForUser(user: UserSession): RiderMetric[] {

@@ -33,7 +33,7 @@ import {
   formatRate,
   formatWon,
   getAdminSummary,
-  getOrdersForUser,
+  getLatestWeekOrdersForUser,
   getRiderMetricsForUser,
   login,
   riderMetrics,
@@ -867,7 +867,7 @@ function AdminScreens({ screen }: { screen: AdminScreen }) {
 
 function RiderScreens({ screen, user }: { screen: RiderScreen; user: UserSession }) {
   const metrics = getRiderMetricsForUser(user)[0];
-  const latestWeekOrders = getOrdersForUser(user);
+  const latestWeekOrders = getLatestWeekOrdersForUser(user);
 
   if (!metrics) {
     return (
