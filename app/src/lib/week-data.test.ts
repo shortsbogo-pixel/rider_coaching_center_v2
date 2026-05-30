@@ -2,13 +2,17 @@ import { describe, expect, it } from "vitest";
 import { login } from "./domain";
 import { parseOrderDetailRows } from "./excel-upload";
 import {
+  applyParsedUploadPreview,
   applyParsedUploadResult,
   buildLatestUploadedWeekData,
   buildSampleWeekData,
+  cancelParsedUploadPreview,
+  createWeekDataUploadState,
   getAdminDashboardSummary,
   getWeekCoachingForRider,
   getWeekMetricForUser,
   getWeekOrdersForUser,
+  setParsedUploadPreview,
 } from "./week-data";
 
 const headerRow = [
@@ -41,6 +45,39 @@ const headerRow = [
 
 function makeRows(...dataRows: unknown[][]) {
   return [[], [], [], [], [], [], headerRow, [], ...dataRows];
+}
+
+function makeReadyParseResult(orderNumber = "ORD-1") {
+  return parseOrderDetailRows({
+    fileName: "동구바로_대전_동구중앙_2026_05-4.xlsx",
+    rows: makeRows([
+      "",
+      "김수환",
+      orderNumber,
+      "가게A",
+      "대전 동구",
+      "대전 중구",
+      "2026-05-20 11:50",
+      "2026-05-20 12:01",
+      "2026-05-20 12:21",
+      "00:20:00",
+      "Post_Lunch",
+      2100,
+      0,
+      1000,
+      2000,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      6500,
+    ]),
+  });
 }
 
 describe("latest uploaded week data", () => {
@@ -192,36 +229,7 @@ describe("latest uploaded week data", () => {
   });
 
   it("keeps the current week data when a parsed upload is not ready", () => {
-    const readyParseResult = parseOrderDetailRows({
-      fileName: "동구바로_대전_동구중앙_2026_05-4.xlsx",
-      rows: makeRows([
-        "",
-        "김수환",
-        "ORD-1",
-        "가게A",
-        "대전 동구",
-        "대전 중구",
-        "2026-05-20 11:50",
-        "2026-05-20 12:01",
-        "2026-05-20 12:21",
-        "00:20:00",
-        "Post_Lunch",
-        2100,
-        0,
-        1000,
-        2000,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        6500,
-      ]),
-    });
+    const readyParseResult = makeReadyParseResult();
     const uploadedWeekData = buildLatestUploadedWeekData(readyParseResult);
     const blockedParseResult = {
       ...readyParseResult,
@@ -232,5 +240,46 @@ describe("latest uploaded week data", () => {
 
     expect(applyParsedUploadResult(uploadedWeekData, blockedParseResult)).toBe(uploadedWeekData);
     expect(applyParsedUploadResult(buildSampleWeekData(), readyParseResult).source).toBe("uploaded");
+  });
+
+  it("keeps preview data separate from the applied latest week data", () => {
+    const readyParseResult = makeReadyParseResult();
+    const initialState = createWeekDataUploadState();
+    const previewState = setParsedUploadPreview(initialState, readyParseResult);
+
+    expect(previewState.parsedUploadPreview).toBe(readyParseResult);
+    expect(previewState.latestUploadedWeekData.source).toBe("sample");
+    expect(getAdminDashboardSummary(previewState.latestUploadedWeekData).completed).toBe(418);
+
+    const appliedState = applyParsedUploadPreview(previewState);
+
+    expect(appliedState.parsedUploadPreview).toBeNull();
+    expect(appliedState.latestUploadedWeekData.source).toBe("uploaded");
+    expect(getAdminDashboardSummary(appliedState.latestUploadedWeekData).completed).toBe(1);
+  });
+
+  it("keeps applied data when a preview is canceled", () => {
+    const appliedWeekData = buildLatestUploadedWeekData(makeReadyParseResult("APPLIED-1"));
+    const previewParseResult = makeReadyParseResult("PREVIEW-1");
+    const previewState = setParsedUploadPreview(createWeekDataUploadState(appliedWeekData), previewParseResult);
+    const canceledState = cancelParsedUploadPreview(previewState);
+
+    expect(canceledState.parsedUploadPreview).toBeNull();
+    expect(canceledState.latestUploadedWeekData).toBe(appliedWeekData);
+    expect(canceledState.latestUploadedWeekData.orders.map((order) => order.id)).toEqual(["APPLIED-1"]);
+  });
+
+  it("does not apply a preview that is not ready", () => {
+    const appliedWeekData = buildLatestUploadedWeekData(makeReadyParseResult("APPLIED-1"));
+    const blockedParseResult = {
+      ...makeReadyParseResult("BLOCKED-1"),
+      status: "blocked" as const,
+      fileName: "동구바로_대전_동구중앙_2026_05-4_정산.xlsx",
+    };
+    const previewState = setParsedUploadPreview(createWeekDataUploadState(appliedWeekData), blockedParseResult);
+    const appliedState = applyParsedUploadPreview(previewState);
+
+    expect(appliedState.latestUploadedWeekData).toBe(appliedWeekData);
+    expect(appliedState.parsedUploadPreview).toBe(blockedParseResult);
   });
 });

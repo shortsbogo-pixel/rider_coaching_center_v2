@@ -52,12 +52,14 @@ import {
   type UploadIssueType,
 } from "@/lib/excel-upload";
 import {
-  applyParsedUploadResult,
-  buildSampleWeekData,
+  applyParsedUploadPreview,
+  cancelParsedUploadPreview,
+  createWeekDataUploadState,
   getAdminDashboardSummary,
   getWeekCoachingForRider,
   getWeekMetricForUser,
   getWeekOrdersForUser,
+  setParsedUploadPreview,
   type LatestUploadedWeekData,
 } from "@/lib/week-data";
 
@@ -363,24 +365,47 @@ function AdminDashboard({ weekData }: { weekData: LatestUploadedWeekData }) {
 
 function AdminUpload({
   weekData,
-  onUploadSuccess,
+  parsedUploadPreview,
+  onParsedUploadPreviewChange,
+  onApplyUploadPreview,
+  onCancelUploadPreview,
 }: {
   weekData: LatestUploadedWeekData;
-  onUploadSuccess: (result: OrderDetailParseResult) => void;
+  parsedUploadPreview: OrderDetailParseResult | null;
+  onParsedUploadPreviewChange: (result: OrderDetailParseResult | null) => void;
+  onApplyUploadPreview: () => void;
+  onCancelUploadPreview: () => void;
 }) {
   const [selectedFileName, setSelectedFileName] = useState("");
   const [sheetNames, setSheetNames] = useState<string[]>([]);
-  const [parseResult, setParseResult] = useState<OrderDetailParseResult | null>(null);
   const [parseMessage, setParseMessage] = useState("");
   const [isParsing, setIsParsing] = useState(false);
+  const [fileInputKey, setFileInputKey] = useState(0);
   const fileNameResult = selectedFileName ? validateUploadFileName(selectedFileName) : null;
   const hasRequiredSheet = sheetNames.includes(ORDER_DETAIL_SHEET_NAME);
-  const canShowSummary = parseResult?.status === "ready";
-  const issueRowCount = parseResult ? new Set(parseResult.issues.map((issue) => issue.rowNumber)).size : 0;
+  const canShowSummary = parsedUploadPreview?.status === "ready";
+  const issueRowCount = parsedUploadPreview ? new Set(parsedUploadPreview.issues.map((issue) => issue.rowNumber)).size : 0;
+
+  function resetPreviewUi() {
+    onCancelUploadPreview();
+    setSelectedFileName("");
+    setSheetNames([]);
+    setParseMessage("");
+    setFileInputKey((current) => current + 1);
+  }
+
+  function handleApplyPreview() {
+    if (parsedUploadPreview?.status !== "ready") return;
+    onApplyUploadPreview();
+    setSelectedFileName("");
+    setSheetNames([]);
+    setParseMessage("이번 주차 데이터로 반영했습니다.");
+    setFileInputKey((current) => current + 1);
+  }
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-    setParseResult(null);
+    onParsedUploadPreviewChange(null);
     setParseMessage("");
     setSheetNames([]);
 
@@ -416,11 +441,8 @@ function AdminUpload({
         raw: true,
       }) as unknown[][];
       const result = parseOrderDetailRows({ fileName: file.name, rows });
-      setParseResult(result);
-      setParseMessage(result.errorMessage ?? (result.status === "ready" ? "브라우저에서 엑셀 파싱을 완료했습니다." : "파싱 결과를 확인해 주세요."));
-      if (result.status === "ready") {
-        onUploadSuccess(result);
-      }
+      onParsedUploadPreviewChange(result);
+      setParseMessage(result.errorMessage ?? (result.status === "ready" ? "파싱/검수 미리보기를 생성했습니다. 아직 앱 전체에 반영되지 않았습니다." : "파싱 결과를 확인해 주세요."));
     } catch (error) {
       setParseMessage(error instanceof Error ? error.message : "엑셀 파일을 읽는 중 오류가 발생했습니다.");
     } finally {
@@ -442,7 +464,7 @@ function AdminUpload({
             <UploadCloud size={18} />
             원천 엑셀 파일 선택
           </span>
-          <input className="mt-3 block w-full text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:text-sm file:font-bold file:text-white" type="file" accept=".xlsx" onChange={handleFileChange} />
+          <input key={fileInputKey} className="mt-3 block w-full text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:text-sm file:font-bold file:text-white" type="file" accept=".xlsx" onChange={handleFileChange} />
           <span className="mt-3 block text-xs font-semibold leading-5 text-blue-900">동구바로_대전_동구중앙_YYYY_MM-W.xlsx 형식만 파싱합니다.</span>
         </label>
 
@@ -480,20 +502,41 @@ function AdminUpload({
         </div>
       </Panel>
 
-      {parseResult ? (
+      {(selectedFileName || parsedUploadPreview) ? (
+        <Panel>
+          <h2 className="text-lg font-black">미리보기 작업</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500">파일 선택 후에는 파싱/검수 미리보기만 표시됩니다. 아래 버튼을 눌러야 관리자/라이더 화면 기준 데이터로 반영됩니다.</p>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <button
+              className={`h-11 rounded-md text-sm font-black ${canShowSummary ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-500"}`}
+              disabled={!canShowSummary}
+              onClick={handleApplyPreview}
+              type="button"
+            >
+              이번 주차 데이터로 반영
+            </button>
+            <button className="h-11 rounded-md border border-slate-300 bg-white text-sm font-bold text-slate-700" onClick={resetPreviewUi} type="button">
+              미리보기 취소
+            </button>
+          </div>
+        </Panel>
+      ) : null}
+
+      {parsedUploadPreview ? (
         <>
           <div className="grid grid-cols-2 gap-3">
-            <StatTile label="총행수" value={`${formatNumber(parseResult.totalRows)}행`} caption="빈 행 제외, 헤더 제외" tone="blue" />
-            <StatTile label="유효 오더 후보" value={`${formatNumber(parseResult.validOrderCount)}건`} caption="필수값 통과" tone="good" />
+            <StatTile label="총행수" value={`${formatNumber(parsedUploadPreview.totalRows)}행`} caption="빈 행 제외, 헤더 제외" tone="blue" />
+            <StatTile label="유효 오더 후보" value={`${formatNumber(parsedUploadPreview.validOrderCount)}건`} caption="필수값 통과" tone="good" />
             <StatTile label="확인 필요 행" value={`${formatNumber(issueRowCount)}행`} caption="누락값 포함 행" tone={issueRowCount ? "warn" : "good"} />
-            <StatTile label="이슈 건수" value={`${formatNumber(parseResult.issueCount)}건`} caption="한 행의 복수 이슈 중복 포함" tone={parseResult.issueCount ? "warn" : "good"} />
+            <StatTile label="이슈 건수" value={`${formatNumber(parsedUploadPreview.issueCount)}건`} caption="한 행의 복수 이슈 중복 포함" tone={parsedUploadPreview.issueCount ? "warn" : "good"} />
           </div>
 
           <Panel>
             <h2 className="text-lg font-black">업로드 결과 요약</h2>
             <div className="mt-3 grid gap-2 text-sm">
-              <div className="flex justify-between gap-3"><span className="text-slate-500">내부 week_code</span><strong>{parseResult.weekCode}</strong></div>
-              <div className="flex justify-between gap-3"><span className="text-slate-500">화면 week_label</span><strong>{parseResult.weekLabel}</strong></div>
+              <div className="flex justify-between gap-3"><span className="text-slate-500">파일명</span><strong className="text-right">{parsedUploadPreview.fileName}</strong></div>
+              <div className="flex justify-between gap-3"><span className="text-slate-500">내부 week_code</span><strong>{parsedUploadPreview.weekCode}</strong></div>
+              <div className="flex justify-between gap-3"><span className="text-slate-500">화면 week_label</span><strong>{parsedUploadPreview.weekLabel}</strong></div>
               <div className="flex justify-between gap-3"><span className="text-slate-500">헤더 기준</span><strong>7행 · B:Y</strong></div>
               <div className="flex justify-between gap-3"><span className="text-slate-500">저장 상태</span><strong className="text-blue-700">미저장 미리보기</strong></div>
             </div>
@@ -506,13 +549,13 @@ function AdminUpload({
               {(Object.entries(uploadIssueLabels) as [UploadIssueType, string][]).map(([type, label]) => (
                 <div className="rounded-md border border-slate-200 p-3" key={type}>
                   <span className="text-xs font-bold text-slate-500">{label}</span>
-                  <strong className={`mt-1 block text-xl font-black ${parseResult.issueSummary[type] ? "text-amber-700" : "text-emerald-700"}`}>{formatNumber(parseResult.issueSummary[type])}</strong>
+                  <strong className={`mt-1 block text-xl font-black ${parsedUploadPreview.issueSummary[type] ? "text-amber-700" : "text-emerald-700"}`}>{formatNumber(parsedUploadPreview.issueSummary[type])}</strong>
                 </div>
               ))}
             </div>
-            {parseResult.issues.length ? (
+            {parsedUploadPreview.issues.length ? (
               <div className="mt-4 max-h-52 space-y-2 overflow-y-auto pr-1">
-                {parseResult.issues.slice(0, 20).map((issue, index) => (
+                {parsedUploadPreview.issues.slice(0, 20).map((issue, index) => (
                   <div className="rounded-md bg-amber-50 p-3 text-xs leading-5 text-amber-900" key={`${issue.rowNumber}-${issue.type}-${index}`}>
                     <strong>{issue.rowNumber}행 · {uploadIssueLabels[issue.type]}</strong>
                     <p>{issue.message}</p>
@@ -527,7 +570,7 @@ function AdminUpload({
           <Panel>
             <h2 className="text-lg font-black">라이더별 집계 미리보기</h2>
             <div className="mt-3 space-y-3">
-              {parseResult.riderSummaries.slice(0, 8).map((summary) => (
+              {parsedUploadPreview.riderSummaries.slice(0, 8).map((summary) => (
                 <div className="rounded-lg border border-slate-200 p-3" key={summary.riderName}>
                   <div className="flex items-center justify-between gap-3">
                     <strong className="text-sm text-slate-950">{summary.riderName}</strong>
@@ -547,7 +590,7 @@ function AdminUpload({
           <Panel>
             <h2 className="text-lg font-black">오더 파싱 미리보기</h2>
             <div className="mt-3 space-y-2">
-              {parseResult.parsedOrders.slice(0, 5).map((order) => (
+              {parsedUploadPreview.parsedOrders.slice(0, 5).map((order) => (
                 <div className="rounded-md border border-slate-200 p-3 text-xs" key={`${order.rowNumber}-${order.orderNumber}`}>
                   <div className="flex justify-between gap-3">
                     <strong className="text-slate-950">{order.riderName}</strong>
@@ -960,13 +1003,29 @@ function RiderMy({ user, metric }: { user: UserSession; metric: RiderMetric }) {
 function AdminScreens({
   screen,
   weekData,
-  onUploadSuccess,
+  parsedUploadPreview,
+  onParsedUploadPreviewChange,
+  onApplyUploadPreview,
+  onCancelUploadPreview,
 }: {
   screen: AdminScreen;
   weekData: LatestUploadedWeekData;
-  onUploadSuccess: (result: OrderDetailParseResult) => void;
+  parsedUploadPreview: OrderDetailParseResult | null;
+  onParsedUploadPreviewChange: (result: OrderDetailParseResult | null) => void;
+  onApplyUploadPreview: () => void;
+  onCancelUploadPreview: () => void;
 }) {
-  if (screen === "upload") return <AdminUpload weekData={weekData} onUploadSuccess={onUploadSuccess} />;
+  if (screen === "upload") {
+    return (
+      <AdminUpload
+        weekData={weekData}
+        parsedUploadPreview={parsedUploadPreview}
+        onParsedUploadPreviewChange={onParsedUploadPreviewChange}
+        onApplyUploadPreview={onApplyUploadPreview}
+        onCancelUploadPreview={onCancelUploadPreview}
+      />
+    );
+  }
   if (screen === "inspect") return <AdminInspect weekData={weekData} />;
   if (screen === "coaching") {
     return <AdminCoaching key={`${weekData.source}-${weekData.weekCode}-${weekData.fileName}`} weekData={weekData} />;
@@ -1012,7 +1071,8 @@ export function RiderCoachingApp() {
   const [adminScreen, setAdminScreen] = useState<AdminScreen>("dashboard");
   const [riderScreen, setRiderScreen] = useState<RiderScreen>("home");
   // 원천 엑셀에는 민감할 수 있는 운행/정산 정보가 있어 브라우저 저장소에 남기지 않는다.
-  const [latestUploadedWeekData, setLatestUploadedWeekData] = useState<LatestUploadedWeekData>(() => buildSampleWeekData());
+  const [weekDataUploadState, setWeekDataUploadState] = useState(() => createWeekDataUploadState());
+  const { latestUploadedWeekData, parsedUploadPreview } = weekDataUploadState;
 
   const activeScreen = user?.role === "admin" ? adminScreen : riderScreen;
   function handleScreenChange(screen: AdminScreen | RiderScreen) {
@@ -1021,8 +1081,16 @@ export function RiderCoachingApp() {
     else setRiderScreen(screen as RiderScreen);
   }
 
-  function handleUploadSuccess(result: OrderDetailParseResult) {
-    setLatestUploadedWeekData((current) => applyParsedUploadResult(current, result));
+  function handleParsedUploadPreviewChange(result: OrderDetailParseResult | null) {
+    setWeekDataUploadState((current) => setParsedUploadPreview(current, result));
+  }
+
+  function handleApplyUploadPreview() {
+    setWeekDataUploadState((current) => applyParsedUploadPreview(current));
+  }
+
+  function handleCancelUploadPreview() {
+    setWeekDataUploadState((current) => cancelParsedUploadPreview(current));
   }
 
   if (!user) return <LoginScreen onLogin={setUser} />;
@@ -1031,7 +1099,14 @@ export function RiderCoachingApp() {
   return (
     <AppChrome user={user} active={activeScreen} onChange={handleScreenChange} onLogout={() => setUser(null)}>
       {user.role === "admin" ? (
-        <AdminScreens screen={adminScreen} weekData={latestUploadedWeekData} onUploadSuccess={handleUploadSuccess} />
+        <AdminScreens
+          screen={adminScreen}
+          weekData={latestUploadedWeekData}
+          parsedUploadPreview={parsedUploadPreview}
+          onParsedUploadPreviewChange={handleParsedUploadPreviewChange}
+          onApplyUploadPreview={handleApplyUploadPreview}
+          onCancelUploadPreview={handleCancelUploadPreview}
+        />
       ) : (
         <RiderScreens screen={riderScreen} user={user} weekData={latestUploadedWeekData} />
       )}

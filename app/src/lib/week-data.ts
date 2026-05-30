@@ -35,6 +35,11 @@ export interface AdminDashboardSummary {
   visibleMessages: number;
 }
 
+export interface WeekDataUploadState {
+  latestUploadedWeekData: LatestUploadedWeekData;
+  parsedUploadPreview: OrderDetailParseResult | null;
+}
+
 const segmentKeys: SegmentKey[] = ["Breakfast", "Lunch_Peak", "Post_Lunch", "Dinner_Peak", "Post_Dinner"];
 const knownRiderProfiles = [
   { riderId: "r-001", name: "김수환" },
@@ -80,6 +85,41 @@ export function applyParsedUploadResult(
 ): LatestUploadedWeekData {
   if (parseResult.status !== "ready") return currentWeekData;
   return buildLatestUploadedWeekData(parseResult);
+}
+
+export function createWeekDataUploadState(
+  latestUploadedWeekData: LatestUploadedWeekData = buildSampleWeekData(),
+): WeekDataUploadState {
+  return {
+    latestUploadedWeekData,
+    parsedUploadPreview: null,
+  };
+}
+
+export function setParsedUploadPreview(
+  state: WeekDataUploadState,
+  parsedUploadPreview: OrderDetailParseResult | null,
+): WeekDataUploadState {
+  return {
+    ...state,
+    parsedUploadPreview,
+  };
+}
+
+export function cancelParsedUploadPreview(state: WeekDataUploadState): WeekDataUploadState {
+  return {
+    ...state,
+    parsedUploadPreview: null,
+  };
+}
+
+export function applyParsedUploadPreview(state: WeekDataUploadState): WeekDataUploadState {
+  if (state.parsedUploadPreview?.status !== "ready") return state;
+
+  return {
+    latestUploadedWeekData: buildLatestUploadedWeekData(state.parsedUploadPreview),
+    parsedUploadPreview: null,
+  };
 }
 
 export function getAdminDashboardSummary(weekData: LatestUploadedWeekData): AdminDashboardSummary {
