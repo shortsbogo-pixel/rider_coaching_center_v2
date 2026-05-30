@@ -212,21 +212,21 @@ function ScreenHeader({
   description: string;
 }) {
   return (
-    <header className="space-y-1">
-      <p className="text-[11px] font-bold uppercase text-blue-700">{eyebrow}</p>
-      <h1 className="text-2xl font-black text-slate-950">{title}</h1>
+    <header className="space-y-1.5">
+      <p className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-black uppercase text-blue-700">{eyebrow}</p>
+      <h1 className="text-[1.55rem] font-black leading-tight text-slate-950">{title}</h1>
       <p className="text-sm leading-5 text-slate-500">{description}</p>
     </header>
   );
 }
 
 function Panel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <section className={`rounded-lg border border-slate-200 bg-white p-4 shadow-sm ${className}`}>{children}</section>;
+  return <section className={`rounded-lg border border-slate-200/90 bg-white p-4 shadow-[0_10px_30px_rgba(15,23,42,0.06)] ${className}`}>{children}</section>;
 }
 
 function BetaNoticeCard() {
   return (
-    <Panel className="border-blue-200 bg-blue-50">
+    <Panel className="border-blue-200 bg-blue-50/90">
       <div className="flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-blue-700">
           <AlertTriangle size={20} />
@@ -245,7 +245,7 @@ function BetaNoticeCard() {
 function DataSourceNotice({ weekData }: { weekData: LatestUploadedWeekData }) {
   const isUploaded = weekData.source === "uploaded";
   return (
-    <div className={`rounded-md border px-3 py-2 text-xs font-bold leading-5 ${isUploaded ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+    <div className={`rounded-lg border px-3 py-2.5 text-xs font-bold leading-5 shadow-[0_6px_18px_rgba(15,23,42,0.04)] ${isUploaded ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
       <p>
         {isUploaded
           ? `업로드 데이터 적용 중 · ${weekData.weekLabel} · ${weekData.fileName}`
@@ -279,9 +279,9 @@ function StatTile({
   }[tone];
 
   return (
-    <div className={`min-h-24 rounded-lg border p-3 ${toneClass}`}>
+    <div className={`min-h-24 rounded-lg border p-3 shadow-[0_8px_22px_rgba(15,23,42,0.04)] ${toneClass}`}>
       <span className="text-xs font-bold text-slate-500">{label}</span>
-      <strong className="mt-2 block text-2xl font-black">{value}</strong>
+      <strong className="mt-2 block break-words text-[1.45rem] font-black leading-tight">{value}</strong>
       {caption ? <small className="mt-1 block text-xs font-semibold text-slate-500">{caption}</small> : null}
     </div>
   );
@@ -319,9 +319,9 @@ function LoginScreen({ onLogin }: { onLogin: (user: UserSession) => void }) {
   }
 
   return (
-    <main className="min-h-dvh bg-slate-100 px-4 py-6">
+    <main className="min-h-dvh px-4 py-6">
       <div className="mx-auto flex min-h-[calc(100dvh-48px)] w-full max-w-[430px] flex-col justify-center gap-4">
-        <section className="rounded-lg bg-slate-950 p-5 text-white">
+        <section className="overflow-hidden rounded-lg bg-slate-950 p-5 text-white shadow-[0_18px_50px_rgba(15,23,42,0.20)]">
           <p className="text-sm font-semibold text-teal-200">Rider Coaching Center</p>
           <h1 className="mt-3 text-3xl font-black">주간 운행 데이터를 코칭으로 바꾸는 앱</h1>
           <p className="mt-3 text-sm leading-6 text-slate-300">
@@ -330,11 +330,11 @@ function LoginScreen({ onLogin }: { onLogin: (user: UserSession) => void }) {
         </section>
         <BetaNoticeCard />
 
-        <form className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm" onSubmit={handleSubmit}>
+        <form className="rounded-lg border border-slate-200 bg-white p-4 shadow-[0_10px_30px_rgba(15,23,42,0.06)]" onSubmit={handleSubmit}>
           <label className="block">
             <span className="text-sm font-bold text-slate-700">아이디</span>
             <input
-              className="mt-2 h-12 w-full rounded-md border border-slate-300 px-3 text-base outline-none focus:border-blue-500"
+              className="mt-2 h-12 w-full rounded-md border border-slate-300 px-3 text-base outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               value={id}
               onChange={(event) => setId(event.target.value)}
             />
@@ -342,13 +342,13 @@ function LoginScreen({ onLogin }: { onLogin: (user: UserSession) => void }) {
           <label className="mt-3 block">
             <span className="text-sm font-bold text-slate-700">비밀번호</span>
             <input
-              className="mt-2 h-12 w-full rounded-md border border-slate-300 px-3 text-base outline-none focus:border-blue-500"
+              className="mt-2 h-12 w-full rounded-md border border-slate-300 px-3 text-base outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
           </label>
-          <button className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-md bg-blue-600 font-black text-white" type="submit">
+          <button className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-md bg-blue-600 font-black text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)] transition active:scale-[0.99]" type="submit">
             <LockKeyhole size={18} />
             로그인
           </button>
@@ -356,7 +356,7 @@ function LoginScreen({ onLogin }: { onLogin: (user: UserSession) => void }) {
         </form>
 
         {visibleTestAccounts.length ? (
-          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-black text-slate-950">베타 테스트 계정</h2>
@@ -424,32 +424,52 @@ function AppChrome({
 }) {
   const isAdmin = user.role === "admin";
   const tabs = isAdmin ? adminTabs : riderTabs;
+  const roleTheme = isAdmin
+    ? {
+        label: "관리자",
+        mode: "운영 관리",
+        logo: "A",
+        logoClass: "bg-gradient-to-br from-blue-600 to-violet-600",
+        navClass: "bg-blue-50 text-blue-700 shadow-[inset_0_0_0_1px_rgba(37,99,235,0.10)]",
+      }
+    : {
+        label: "라이더",
+        mode: "내 데이터",
+        logo: "R",
+        logoClass: "bg-gradient-to-br from-emerald-500 to-blue-600",
+        navClass: "bg-emerald-50 text-emerald-700 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.12)]",
+      };
 
   return (
-    <main className="min-h-dvh bg-slate-100">
-      <div className="mx-auto min-h-dvh w-full max-w-[430px] bg-slate-50 shadow-2xl">
-        <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
+    <main className="min-h-dvh px-0 sm:px-3">
+      <div className="mx-auto min-h-dvh w-full max-w-[430px] bg-[#f4f7fb] shadow-[0_26px_70px_rgba(15,23,42,0.18)]">
+        <header className="sticky top-0 z-20 border-b border-slate-200/90 bg-white/95 px-4 py-3 backdrop-blur">
           <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-bold text-slate-500">{isAdmin ? "관리자" : "라이더"} 모드</p>
-              <strong className="text-base font-black text-slate-950">{user.displayName}</strong>
+            <div className="flex min-w-0 items-center gap-3">
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-black text-white shadow-[0_10px_24px_rgba(37,99,235,0.20)] ${roleTheme.logoClass}`}>
+                {roleTheme.logo}
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-500">{roleTheme.label} 모드 · {roleTheme.mode}</p>
+                <strong className="block truncate text-base font-black text-slate-950">{user.displayName}</strong>
+              </div>
             </div>
-            <button className="rounded-md border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600" onClick={onLogout}>
+            <button className="h-10 shrink-0 rounded-md border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 shadow-sm active:scale-[0.99]" onClick={onLogout}>
               로그아웃
             </button>
           </div>
         </header>
 
-        <div className="space-y-4 px-4 pb-28 pt-4">{children}</div>
+        <div className="space-y-4 px-4 pb-32 pt-4">{children}</div>
 
-        <nav className="fixed bottom-0 left-1/2 z-30 grid h-[74px] w-full max-w-[430px] -translate-x-1/2 grid-cols-5 border-t border-slate-200 bg-white px-2 pb-2 pt-2">
+        <nav className="fixed bottom-0 left-1/2 z-30 grid h-[78px] w-full max-w-[430px] -translate-x-1/2 grid-cols-5 gap-1 border-t border-slate-200 bg-white/95 px-2 pb-3 pt-2 shadow-[0_-14px_34px_rgba(15,23,42,0.08)] backdrop-blur">
           {tabs.map((tab: AppTab) => {
             const Icon = isAdmin ? adminIcons[tab.key as AdminScreen] : riderIcons[tab.key as RiderScreen];
             const selected = active === tab.key;
             return (
               <button
-                className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-md text-[11px] font-black ${
-                  selected ? "bg-blue-50 text-blue-700" : "text-slate-500"
+                className={`flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-md px-1 text-[10.5px] font-black leading-none transition ${
+                  selected ? roleTheme.navClass : "text-slate-500 active:bg-slate-50"
                 }`}
                 key={tab.key}
                 onClick={() => onChange(tab.key)}

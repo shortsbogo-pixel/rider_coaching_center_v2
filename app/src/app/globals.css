@@ -1,8 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f6f7f9;
+  --background: #f4f7fb;
   --foreground: #172033;
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;
+  --line: #e3eaf3;
+  --muted: #667085;
+  --primary: #2563eb;
+  --primary-soft: #eef4ff;
+  --success: #16a34a;
+  --success-soft: #ecfdf3;
+  --warning: #d97706;
+  --warning-soft: #fff7e6;
+  --danger: #dc2626;
+  --danger-soft: #fff1f2;
+  --info: #7c3aed;
+  --info-soft: #f5f3ff;
+  --card-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
 }
 
 @theme inline {
@@ -13,9 +28,12 @@
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(circle at 50% -10%, rgba(37, 99, 235, 0.14), transparent 32%),
+    linear-gradient(180deg, #eef4ff 0%, #f7f9fd 44%, var(--background) 100%);
   color: var(--foreground);
   font-family: var(--font-sans);
+  min-height: 100dvh;
 }
 
 button,
@@ -35,4 +53,14 @@ button:disabled {
 
 * {
   box-sizing: border-box;
+}
+
+::selection {
+  background: rgba(37, 99, 235, 0.18);
+}
+
+input,
+textarea,
+select {
+  background: var(--surface);
 }
