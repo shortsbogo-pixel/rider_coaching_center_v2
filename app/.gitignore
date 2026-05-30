@@ -29,6 +29,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+dev-server*.log
+
+# local verification artifacts
+/.verification/
 
 # env files (can opt-in for committing if needed)
 .env*
@@ -39,3 +43,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# raw/imported data should never be committed from the app
+*.xlsx
+*.xls
+*.csv
+*.db
+*.sqlite
+/uploads/
