@@ -53,6 +53,16 @@ export interface MusicMode {
   futureExternalUrl: string | null;
 }
 
+export interface PaceCheckSettings {
+  defaultWeeklyGoalCalls: number;
+  sleepWarningHours: number;
+  riskConditionSafetyMessage: string;
+  skippedMealMessage: string;
+  dayRoutineMessage: string;
+  nightRoutineMessage: string;
+  musicModeSafetyNote: string;
+}
+
 export const defaultPaceCheckInput: PaceCheckInput = {
   todayCompletedCalls: 0,
   todayStartTime: "",
@@ -63,6 +73,16 @@ export const defaultPaceCheckInput: PaceCheckInput = {
   weeklyGoalCalls: 120,
   routineType: "night",
   musicModeId: "call_tempo",
+};
+
+export const defaultPaceCheckSettings: PaceCheckSettings = {
+  defaultWeeklyGoalCalls: 120,
+  sleepWarningHours: 5,
+  riskConditionSafetyMessage: "컨디션이 위험하면 콜 목표보다 멈춤이 먼저입니다. 바로 쉬고 상태를 보세요.",
+  skippedMealMessage: "식사를 건너뛰었습니다. 다음 묶음 전 식사부터 챙기세요.",
+  dayRoutineMessage: "낮 운행은 식사와 짧은 휴식이 핵심입니다.",
+  nightRoutineMessage: "밤 운행은 컨디션 확인이 먼저입니다.",
+  musicModeSafetyNote: "운행 중 조작하지 말고 정차 후 선택하세요.",
 };
 
 export const routineCoachings: Record<RoutineType, RoutineCoaching> = {
@@ -104,11 +124,42 @@ export const musicModes: MusicMode[] = [
   },
 ];
 
-export function createDefaultPaceCheckInput(lastWeekCompletedCalls: number): PaceCheckInput {
+export function createDefaultPaceCheckInput(
+  lastWeekCompletedCalls: number,
+  settings: PaceCheckSettings = defaultPaceCheckSettings,
+): PaceCheckInput {
+  const normalizedSettings = normalizePaceCheckSettings(settings);
   return {
     ...defaultPaceCheckInput,
-    weeklyGoalCalls: Math.max(1, Math.round(lastWeekCompletedCalls || defaultPaceCheckInput.weeklyGoalCalls)),
+    weeklyGoalCalls: Math.max(1, Math.round(normalizedSettings.defaultWeeklyGoalCalls || lastWeekCompletedCalls || defaultPaceCheckInput.weeklyGoalCalls)),
   };
+}
+
+export function normalizePaceCheckSettings(settings: PaceCheckSettings): PaceCheckSettings {
+  return {
+    ...defaultPaceCheckSettings,
+    ...settings,
+    defaultWeeklyGoalCalls: Math.max(1, clampWholeNumber(settings.defaultWeeklyGoalCalls)),
+    sleepWarningHours: clampOneDecimal(settings.sleepWarningHours, 1, 24),
+    riskConditionSafetyMessage: cleanMessage(settings.riskConditionSafetyMessage, defaultPaceCheckSettings.riskConditionSafetyMessage),
+    skippedMealMessage: cleanMessage(settings.skippedMealMessage, defaultPaceCheckSettings.skippedMealMessage),
+    dayRoutineMessage: cleanMessage(settings.dayRoutineMessage, defaultPaceCheckSettings.dayRoutineMessage),
+    nightRoutineMessage: cleanMessage(settings.nightRoutineMessage, defaultPaceCheckSettings.nightRoutineMessage),
+    musicModeSafetyNote: cleanMessage(settings.musicModeSafetyNote, defaultPaceCheckSettings.musicModeSafetyNote),
+  };
+}
+
+export function createPaceSettingsSignature(settings: PaceCheckSettings): string {
+  const normalized = normalizePaceCheckSettings(settings);
+  return [
+    normalized.defaultWeeklyGoalCalls,
+    normalized.sleepWarningHours,
+    normalized.riskConditionSafetyMessage,
+    normalized.skippedMealMessage,
+    normalized.dayRoutineMessage,
+    normalized.nightRoutineMessage,
+    normalized.musicModeSafetyNote,
+  ].join("|");
 }
 
 export function normalizePaceCheckInput(input: PaceCheckInput): PaceCheckInput {
@@ -161,21 +212,26 @@ export function calculateGoalProgress(input: PaceCheckInput): GoalProgress {
   };
 }
 
-export function buildPaceRecommendation(input: PaceCheckInput, lastWeekPace: LastWeekPace): PaceRecommendation {
+export function buildPaceRecommendation(
+  input: PaceCheckInput,
+  lastWeekPace: LastWeekPace,
+  settings: PaceCheckSettings = defaultPaceCheckSettings,
+): PaceRecommendation {
   const normalized = normalizePaceCheckInput(input);
+  const normalizedSettings = normalizePaceCheckSettings(settings);
 
   if (normalized.condition === "risk") {
     return {
       title: "안전 우선",
-      message: "컨디션이 위험하면 콜 목표보다 멈춤이 먼저입니다. 바로 쉬고 상태를 보세요.",
+      message: normalizedSettings.riskConditionSafetyMessage,
       tone: "danger",
     };
   }
 
-  if (normalized.sleepHours < 5) {
+  if (normalized.sleepHours < normalizedSettings.sleepWarningHours) {
     return {
       title: "수면 부족 주의",
-      message: "수면이 5시간 미만입니다. 목표를 낮추고 먼저 쉬세요.",
+      message: `수면이 ${normalizedSettings.sleepWarningHours}시간 미만입니다. 목표를 낮추고 먼저 쉬세요.`,
       tone: "danger",
     };
   }
@@ -183,7 +239,7 @@ export function buildPaceRecommendation(input: PaceCheckInput, lastWeekPace: Las
   if (normalized.mealStatus === "skipped") {
     return {
       title: "식사 먼저",
-      message: "식사를 건너뛰었습니다. 다음 묶음 전 식사부터 챙기세요.",
+      message: normalizedSettings.skippedMealMessage,
       tone: "warn",
     };
   }
@@ -211,12 +267,28 @@ export function buildPaceRecommendation(input: PaceCheckInput, lastWeekPace: Las
   };
 }
 
-export function getRoutineCoaching(type: RoutineType): RoutineCoaching {
-  return routineCoachings[type];
+export function getRoutineCoaching(
+  type: RoutineType,
+  settings: PaceCheckSettings = defaultPaceCheckSettings,
+): RoutineCoaching {
+  const normalizedSettings = normalizePaceCheckSettings(settings);
+  const routine = routineCoachings[type];
+  return {
+    ...routine,
+    title: type === "day" ? normalizedSettings.dayRoutineMessage : normalizedSettings.nightRoutineMessage,
+  };
 }
 
-export function getMusicMode(modeId: MusicModeId): MusicMode {
-  return musicModes.find((mode) => mode.modeId === modeId) ?? musicModes[0];
+export function getMusicMode(
+  modeId: MusicModeId,
+  settings: PaceCheckSettings = defaultPaceCheckSettings,
+): MusicMode {
+  const normalizedSettings = normalizePaceCheckSettings(settings);
+  const mode = musicModes.find((candidate) => candidate.modeId === modeId) ?? musicModes[0];
+  return {
+    ...mode,
+    safetyNote: normalizedSettings.musicModeSafetyNote,
+  };
 }
 
 function isBelowLastWeekPace(input: PaceCheckInput, lastWeekPace: LastWeekPace): boolean {
@@ -237,6 +309,11 @@ function countOrderActiveDays(orders: OrderRecord[]): number {
 function clampWholeNumber(value: number): number {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.round(value));
+}
+
+function cleanMessage(value: string, fallback: string): string {
+  const cleaned = value.trim();
+  return cleaned || fallback;
 }
 
 function clampOneDecimal(value: number, min: number, max: number): number {

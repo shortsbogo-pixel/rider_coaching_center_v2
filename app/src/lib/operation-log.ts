@@ -7,7 +7,8 @@ export type OperationLogType =
   | "upload_cancelled"
   | "upload_rejected"
   | "sheet_missing"
-  | "parse_failed";
+  | "parse_failed"
+  | "pace_settings_updated";
 
 export interface OperationLogSummary {
   totalRows: number;
@@ -101,6 +102,20 @@ export function createOperationLogFromWeekData({
     createdAt,
     actor: "admin",
     summary,
+  };
+}
+
+export function createOperationLogFromPaceSettingsUpdate(createdAt = new Date().toISOString()): OperationLogEntry {
+  const sourceFileName = "페이스 체크 설정";
+  return {
+    id: createOperationLogId("pace_settings_updated", sourceFileName, createdAt),
+    type: "pace_settings_updated",
+    weekCode: null,
+    weekLabel: null,
+    sourceFileName,
+    createdAt,
+    actor: "admin",
+    summary: createEmptySummary(),
   };
 }
 

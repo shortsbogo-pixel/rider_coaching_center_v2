@@ -3,6 +3,7 @@ import { parseOrderDetailRows } from "./excel-upload";
 import { buildLatestUploadedWeekData } from "./week-data";
 import {
   createOperationLogFromFileName,
+  createOperationLogFromPaceSettingsUpdate,
   createOperationLogFromParseResult,
   createOperationLogFromWeekData,
   findLastAppliedLog,
@@ -194,5 +195,26 @@ describe("operation logs", () => {
       "upload_preview_created",
     ]);
     expect(findLastAppliedLog([previewLog, laterRejectedLog, appliedLog])).toEqual(appliedLog);
+  });
+
+  it("creates pace settings update logs without source workbook or rider data", () => {
+    const log = createOperationLogFromPaceSettingsUpdate("2026-05-30T10:04:00.000Z");
+
+    expect(log).toMatchObject({
+      type: "pace_settings_updated",
+      weekCode: null,
+      weekLabel: null,
+      sourceFileName: "페이스 체크 설정",
+      actor: "admin",
+      summary: {
+        totalRows: 0,
+        validOrderCount: 0,
+        issueRows: 0,
+        issueCount: 0,
+        riderCount: 0,
+      },
+    });
+    expect(JSON.stringify(log)).not.toContain(".xlsx");
+    expect(JSON.stringify(log)).not.toContain("riderId");
   });
 });

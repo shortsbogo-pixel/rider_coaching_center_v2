@@ -59,6 +59,7 @@ import {
 } from "@/lib/excel-upload";
 import {
   createOperationLogFromFileName,
+  createOperationLogFromPaceSettingsUpdate,
   createOperationLogFromParseResult,
   findLastAppliedLog,
   sortOperationLogsNewestFirst,
@@ -68,16 +69,20 @@ import {
 import {
   buildPaceRecommendation,
   calculateGoalProgress,
+  createPaceSettingsSignature,
   createDefaultPaceCheckInput,
+  defaultPaceCheckSettings,
   getLastWeekPace,
   getMusicMode,
   getRoutineCoaching,
   musicModes,
+  normalizePaceCheckSettings,
   normalizePaceCheckInput,
   type MealStatus,
   type MusicModeId,
   type PaceCheckInput,
   type PaceCondition,
+  type PaceCheckSettings,
   type PaceTone,
   type RestStatus,
   type RoutineType,
@@ -128,6 +133,7 @@ const operationLogLabels: Record<OperationLogType, string> = {
   upload_rejected: "차단",
   sheet_missing: "시트 누락",
   parse_failed: "파싱 실패",
+  pace_settings_updated: "페이스 설정",
 };
 const operationLogTone: Record<OperationLogType, string> = {
   upload_preview_created: "bg-blue-50 text-blue-700",
@@ -136,6 +142,7 @@ const operationLogTone: Record<OperationLogType, string> = {
   upload_rejected: "bg-rose-50 text-rose-700",
   sheet_missing: "bg-amber-50 text-amber-800",
   parse_failed: "bg-rose-50 text-rose-700",
+  pace_settings_updated: "bg-violet-50 text-violet-700",
 };
 type ChoiceTone = "good" | "neutral" | "warn" | "danger" | "blue";
 
@@ -906,11 +913,144 @@ function AdminCoaching({ weekData }: { weekData: LatestUploadedWeekData }) {
   );
 }
 
-function AdminMore({ operationLogs }: { operationLogs: OperationLogEntry[] }) {
+function AdminPaceSettingsPanel({
+  paceSettings,
+  onPaceSettingsChange,
+  onOperationLog,
+}: {
+  paceSettings: PaceCheckSettings;
+  onPaceSettingsChange: (settings: PaceCheckSettings) => void;
+  onOperationLog: (log: OperationLogEntry) => void;
+}) {
+  const [draft, setDraft] = useState<PaceCheckSettings>(paceSettings);
+  const normalizedDraft = normalizePaceCheckSettings(draft);
+
+  function updateDraft(patch: Partial<PaceCheckSettings>) {
+    setDraft((current) => normalizePaceCheckSettings({ ...current, ...patch }));
+  }
+
+  function handleApplySettings() {
+    const normalized = normalizePaceCheckSettings(draft);
+    setDraft(normalized);
+    onPaceSettingsChange(normalized);
+    onOperationLog(createOperationLogFromPaceSettingsUpdate());
+  }
+
+  return (
+    <Panel>
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
+          <Settings size={20} />
+        </span>
+        <div>
+          <h2 className="text-lg font-black">페이스 체크 설정</h2>
+          <p className="mt-1 text-sm leading-5 text-slate-500">쿠팡플러스 라이더 화면의 기본 목표와 안전 문구를 조정합니다.</p>
+        </div>
+      </div>
+      <div className="mt-3 rounded-md bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900">
+        서버 저장 전 단계입니다. 새로고침 후에는 기본 설정으로 초기화될 수 있습니다.
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <label className="block">
+          <span className="text-sm font-bold text-slate-700">기본 주간 목표</span>
+          <input
+            className="mt-2 h-12 w-full rounded-md border border-slate-300 px-3 text-base font-black outline-none focus:border-violet-500"
+            inputMode="numeric"
+            min={1}
+            type="number"
+            value={normalizedDraft.defaultWeeklyGoalCalls}
+            onChange={(event) => updateDraft({ defaultWeeklyGoalCalls: Number(event.target.value) })}
+          />
+        </label>
+        <label className="block">
+          <span className="text-sm font-bold text-slate-700">수면 경고 기준</span>
+          <input
+            className="mt-2 h-12 w-full rounded-md border border-slate-300 px-3 text-base font-black outline-none focus:border-violet-500"
+            inputMode="decimal"
+            min={1}
+            max={24}
+            step={0.5}
+            type="number"
+            value={normalizedDraft.sleepWarningHours}
+            onChange={(event) => updateDraft({ sleepWarningHours: Number(event.target.value) })}
+          />
+        </label>
+      </div>
+
+      <div className="mt-4 space-y-3">
+        <SettingsTextarea
+          label="위험 컨디션 안전 문구"
+          value={draft.riskConditionSafetyMessage}
+          onChange={(value) => updateDraft({ riskConditionSafetyMessage: value })}
+        />
+        <SettingsTextarea
+          label="식사 건너뜀 안내 문구"
+          value={draft.skippedMealMessage}
+          onChange={(value) => updateDraft({ skippedMealMessage: value })}
+        />
+        <SettingsTextarea
+          label="주간형 루틴 문구"
+          value={draft.dayRoutineMessage}
+          onChange={(value) => updateDraft({ dayRoutineMessage: value })}
+        />
+        <SettingsTextarea
+          label="야간형 루틴 문구"
+          value={draft.nightRoutineMessage}
+          onChange={(value) => updateDraft({ nightRoutineMessage: value })}
+        />
+        <SettingsTextarea
+          label="음악 모드 안전 문구"
+          value={draft.musicModeSafetyNote}
+          onChange={(value) => updateDraft({ musicModeSafetyNote: value })}
+        />
+      </div>
+
+      <button
+        className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-md bg-violet-600 text-sm font-black text-white"
+        onClick={handleApplySettings}
+        type="button"
+      >
+        <CheckCircle2 size={18} />
+        페이스 체크 설정 반영
+      </button>
+    </Panel>
+  );
+}
+
+function SettingsTextarea({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="block">
+      <span className="text-sm font-bold text-slate-700">{label}</span>
+      <textarea
+        className="mt-2 min-h-20 w-full resize-none rounded-md border border-slate-300 p-3 text-sm font-semibold leading-6 outline-none focus:border-violet-500"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  );
+}
+
+function AdminMore({
+  operationLogs,
+  paceSettings,
+  onPaceSettingsChange,
+  onOperationLog,
+}: {
+  operationLogs: OperationLogEntry[];
+  paceSettings: PaceCheckSettings;
+  onPaceSettingsChange: (settings: PaceCheckSettings) => void;
+  onOperationLog: (log: OperationLogEntry) => void;
+}) {
   const sortedLogs = sortOperationLogsNewestFirst(operationLogs);
   return (
     <>
       <ScreenHeader eyebrow="More" title="더보기" description="자주 쓰지 않는 설정과 계정 관리를 모았습니다." />
+      <AdminPaceSettingsPanel
+        paceSettings={paceSettings}
+        onPaceSettingsChange={onPaceSettingsChange}
+        onOperationLog={onOperationLog}
+      />
       <Panel>
         <div className="space-y-3">
           {[
@@ -993,14 +1133,23 @@ function OrderList({ list }: { list: OrderRecord[] }) {
   );
 }
 
-function RiderPaceCheck({ metric, latestWeekOrders }: { metric: RiderMetric; latestWeekOrders: OrderRecord[] }) {
-  const storageKey = `rider-pace-check:${metric.riderId}:${latestWeekOrders[0]?.weekCode ?? metric.weekLabel}`;
-  const [paceInput, setPaceInput] = useState<PaceCheckInput>(() => readStoredPaceCheckInput(storageKey, metric.completedCount));
+function RiderPaceCheck({
+  metric,
+  latestWeekOrders,
+  paceSettings,
+}: {
+  metric: RiderMetric;
+  latestWeekOrders: OrderRecord[];
+  paceSettings: PaceCheckSettings;
+}) {
+  const settingsSignature = createPaceSettingsSignature(paceSettings);
+  const storageKey = `rider-pace-check:${metric.riderId}:${latestWeekOrders[0]?.weekCode ?? metric.weekLabel}:${settingsSignature}`;
+  const [paceInput, setPaceInput] = useState<PaceCheckInput>(() => readStoredPaceCheckInput(storageKey, metric.completedCount, paceSettings));
   const lastWeekPace = getLastWeekPace(metric, latestWeekOrders);
   const goalProgress = calculateGoalProgress(paceInput);
-  const recommendation = buildPaceRecommendation(paceInput, lastWeekPace);
-  const routine = getRoutineCoaching(paceInput.routineType);
-  const selectedMusicMode = getMusicMode(paceInput.musicModeId);
+  const recommendation = buildPaceRecommendation(paceInput, lastWeekPace, paceSettings);
+  const routine = getRoutineCoaching(paceInput.routineType, paceSettings);
+  const selectedMusicMode = getMusicMode(paceInput.musicModeId, paceSettings);
   const conditionLabel = conditionOptions.find((option) => option.value === paceInput.condition)?.label ?? "보통";
   const mealLabel = mealOptions.find((option) => option.value === paceInput.mealStatus)?.label ?? "아직";
   const restLabel = restOptions.find((option) => option.value === paceInput.restStatus)?.label ?? "부족";
@@ -1235,8 +1384,8 @@ function RiderPaceCheck({ metric, latestWeekOrders }: { metric: RiderMetric; lat
   );
 }
 
-function readStoredPaceCheckInput(storageKey: string, completedCount: number): PaceCheckInput {
-  const fallback = createDefaultPaceCheckInput(completedCount);
+function readStoredPaceCheckInput(storageKey: string, completedCount: number, paceSettings: PaceCheckSettings): PaceCheckInput {
+  const fallback = createDefaultPaceCheckInput(completedCount, paceSettings);
   if (typeof window === "undefined") return fallback;
 
   try {
@@ -1283,11 +1432,24 @@ function SegmentControl<T extends string>({
   );
 }
 
-function RiderHome({ metric, latestWeekOrders }: { metric: RiderMetric; latestWeekOrders: OrderRecord[] }) {
+function RiderHome({
+  metric,
+  latestWeekOrders,
+  paceSettings,
+}: {
+  metric: RiderMetric;
+  latestWeekOrders: OrderRecord[];
+  paceSettings: PaceCheckSettings;
+}) {
   return (
     <>
       <ScreenHeader eyebrow="Rider Home" title={`${metric.riderName}님, 이번 주 운행 현황`} description={`${metric.weekLabel} · 최신 업로드 주차의 본인 데이터만 표시합니다.`} />
-      <RiderPaceCheck key={`${metric.riderId}-${latestWeekOrders[0]?.weekCode ?? metric.weekLabel}`} metric={metric} latestWeekOrders={latestWeekOrders} />
+      <RiderPaceCheck
+        key={`${metric.riderId}-${latestWeekOrders[0]?.weekCode ?? metric.weekLabel}-${createPaceSettingsSignature(paceSettings)}`}
+        metric={metric}
+        latestWeekOrders={latestWeekOrders}
+        paceSettings={paceSettings}
+      />
       <div className="grid grid-cols-2 gap-3">
         <StatTile label="완료" value={`${metric.completedCount}건`} caption={`${metric.activeDays}일 활동`} tone="blue" />
         <StatTile label="점수" value={`${metric.dispatchScore}점`} caption={metric.grade} tone="good" />
@@ -1454,18 +1616,22 @@ function AdminScreens({
   weekData,
   parsedUploadPreview,
   operationLogs,
+  paceSettings,
   onParsedUploadPreviewChange,
   onApplyUploadPreview,
   onCancelUploadPreview,
+  onPaceSettingsChange,
   onOperationLog,
 }: {
   screen: AdminScreen;
   weekData: LatestUploadedWeekData;
   parsedUploadPreview: OrderDetailParseResult | null;
   operationLogs: OperationLogEntry[];
+  paceSettings: PaceCheckSettings;
   onParsedUploadPreviewChange: (result: OrderDetailParseResult | null) => void;
   onApplyUploadPreview: () => void;
   onCancelUploadPreview: () => void;
+  onPaceSettingsChange: (settings: PaceCheckSettings) => void;
   onOperationLog: (log: OperationLogEntry) => void;
 }) {
   if (screen === "upload") {
@@ -1484,11 +1650,30 @@ function AdminScreens({
   if (screen === "coaching") {
     return <AdminCoaching key={`${weekData.source}-${weekData.weekCode}-${weekData.fileName}`} weekData={weekData} />;
   }
-  if (screen === "more") return <AdminMore operationLogs={operationLogs} />;
+  if (screen === "more") {
+    return (
+      <AdminMore
+        operationLogs={operationLogs}
+        paceSettings={paceSettings}
+        onPaceSettingsChange={onPaceSettingsChange}
+        onOperationLog={onOperationLog}
+      />
+    );
+  }
   return <AdminDashboard weekData={weekData} lastAppliedLog={findLastAppliedLog(operationLogs)} />;
 }
 
-function RiderScreens({ screen, user, weekData }: { screen: RiderScreen; user: UserSession; weekData: LatestUploadedWeekData }) {
+function RiderScreens({
+  screen,
+  user,
+  weekData,
+  paceSettings,
+}: {
+  screen: RiderScreen;
+  user: UserSession;
+  weekData: LatestUploadedWeekData;
+  paceSettings: PaceCheckSettings;
+}) {
   const metrics = getWeekMetricForUser(weekData, user);
   const latestWeekOrders = getWeekOrdersForUser(weekData, user);
   const message = metrics ? getWeekCoachingForRider(weekData, metrics.riderId) : undefined;
@@ -1510,7 +1695,7 @@ function RiderScreens({ screen, user, weekData }: { screen: RiderScreen; user: U
   else if (screen === "map") content = <RiderMap latestWeekOrders={latestWeekOrders} />;
   else if (screen === "coaching") content = <RiderCoaching metric={metrics} message={message} />;
   else if (screen === "my") content = <RiderMy user={user} metric={metrics} />;
-  else content = <RiderHome metric={metrics} latestWeekOrders={latestWeekOrders} />;
+  else content = <RiderHome metric={metrics} latestWeekOrders={latestWeekOrders} paceSettings={paceSettings} />;
 
   return (
     <>
@@ -1527,6 +1712,7 @@ export function RiderCoachingApp() {
   // 원천 엑셀에는 민감할 수 있는 운행/정산 정보가 있어 브라우저 저장소에 남기지 않는다.
   const [weekDataUploadState, setWeekDataUploadState] = useState(() => createWeekDataUploadState());
   const [operationLogs, setOperationLogs] = useState<OperationLogEntry[]>([]);
+  const [paceSettings, setPaceSettings] = useState<PaceCheckSettings>(defaultPaceCheckSettings);
   const { latestUploadedWeekData, parsedUploadPreview } = weekDataUploadState;
 
   const activeScreen = user?.role === "admin" ? adminScreen : riderScreen;
@@ -1563,13 +1749,15 @@ export function RiderCoachingApp() {
           weekData={latestUploadedWeekData}
           parsedUploadPreview={parsedUploadPreview}
           operationLogs={operationLogs}
+          paceSettings={paceSettings}
           onParsedUploadPreviewChange={handleParsedUploadPreviewChange}
           onApplyUploadPreview={handleApplyUploadPreview}
           onCancelUploadPreview={handleCancelUploadPreview}
+          onPaceSettingsChange={setPaceSettings}
           onOperationLog={handleOperationLog}
         />
       ) : (
-        <RiderScreens screen={riderScreen} user={user} weekData={latestUploadedWeekData} />
+        <RiderScreens screen={riderScreen} user={user} weekData={latestUploadedWeekData} paceSettings={paceSettings} />
       )}
     </AppChrome>
   );
