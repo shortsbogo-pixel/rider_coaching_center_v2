@@ -6,6 +6,8 @@ import {
   CheckCircle2,
   ChevronRight,
   ClipboardCheck,
+  Clock,
+  Coffee,
   Eye,
   FileSpreadsheet,
   FileUp,
@@ -14,18 +16,22 @@ import {
   LockKeyhole,
   MapPinned,
   MessageSquareText,
+  Moon,
   MoreHorizontal,
+  Music,
   RotateCcw,
   Settings,
   ShieldCheck,
+  Sun,
   Table2,
+  Target,
   ToggleLeft,
   ToggleRight,
   UploadCloud,
   User,
   type LucideIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   adminTabs,
   formatNumber,
@@ -59,6 +65,23 @@ import {
   type OperationLogEntry,
   type OperationLogType,
 } from "@/lib/operation-log";
+import {
+  buildPaceRecommendation,
+  calculateGoalProgress,
+  createDefaultPaceCheckInput,
+  getLastWeekPace,
+  getMusicMode,
+  getRoutineCoaching,
+  musicModes,
+  normalizePaceCheckInput,
+  type MealStatus,
+  type MusicModeId,
+  type PaceCheckInput,
+  type PaceCondition,
+  type PaceTone,
+  type RestStatus,
+  type RoutineType,
+} from "@/lib/rider-pace-check";
 import {
   applyParsedUploadPreview,
   cancelParsedUploadPreview,
@@ -113,6 +136,32 @@ const operationLogTone: Record<OperationLogType, string> = {
   upload_rejected: "bg-rose-50 text-rose-700",
   sheet_missing: "bg-amber-50 text-amber-800",
   parse_failed: "bg-rose-50 text-rose-700",
+};
+const conditionOptions: { value: PaceCondition; label: string }[] = [
+  { value: "good", label: "좋음" },
+  { value: "normal", label: "보통" },
+  { value: "tired", label: "피곤" },
+  { value: "risk", label: "위험" },
+];
+const mealOptions: { value: MealStatus; label: string }[] = [
+  { value: "done", label: "완료" },
+  { value: "not_yet", label: "아직" },
+  { value: "skipped", label: "건너뜀" },
+];
+const restOptions: { value: RestStatus; label: string }[] = [
+  { value: "enough", label: "충분" },
+  { value: "short", label: "부족" },
+  { value: "none", label: "없음" },
+];
+const routineOptions: { value: RoutineType; label: string; icon: LucideIcon }[] = [
+  { value: "day", label: "주간형", icon: Sun },
+  { value: "night", label: "야간형", icon: Moon },
+];
+const paceToneClass: Record<PaceTone, string> = {
+  good: "border-emerald-200 bg-emerald-50 text-emerald-950",
+  warn: "border-amber-200 bg-amber-50 text-amber-950",
+  danger: "border-rose-200 bg-rose-50 text-rose-950",
+  blue: "border-blue-200 bg-blue-50 text-blue-950",
 };
 
 function ScreenHeader({
@@ -920,6 +969,281 @@ function OrderList({ list }: { list: OrderRecord[] }) {
   );
 }
 
+function RiderPaceCheck({ metric, latestWeekOrders }: { metric: RiderMetric; latestWeekOrders: OrderRecord[] }) {
+  const storageKey = `rider-pace-check:${metric.riderId}:${latestWeekOrders[0]?.weekCode ?? metric.weekLabel}`;
+  const [paceInput, setPaceInput] = useState<PaceCheckInput>(() => readStoredPaceCheckInput(storageKey, metric.completedCount));
+  const lastWeekPace = getLastWeekPace(metric, latestWeekOrders);
+  const goalProgress = calculateGoalProgress(paceInput);
+  const recommendation = buildPaceRecommendation(paceInput, lastWeekPace);
+  const routine = getRoutineCoaching(paceInput.routineType);
+  const selectedMusicMode = getMusicMode(paceInput.musicModeId);
+
+  useEffect(() => {
+    window.localStorage.setItem(storageKey, JSON.stringify(normalizePaceCheckInput(paceInput)));
+  }, [paceInput, storageKey]);
+
+  function updatePaceInput(patch: Partial<PaceCheckInput>) {
+    setPaceInput((current) => normalizePaceCheckInput({ ...current, ...patch }));
+  }
+
+  return (
+    <section className="space-y-4">
+      <ScreenHeader
+        eyebrow="Pace Check"
+        title="오늘의 페이스 체크"
+        description="지난주 확정 데이터와 오늘 수기 입력으로 이번 주 목표와 컨디션을 함께 봅니다."
+      />
+
+      <Panel>
+        <div className="flex items-start gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+            <BarChart3 size={22} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-slate-500">지난주 기준 페이스</p>
+            <strong className="mt-1 block text-4xl font-black text-slate-950">{formatNumber(lastWeekPace.completedCalls)}건</strong>
+            <p className="mt-2 text-sm font-bold leading-5 text-blue-700">지난주 쿠팡플러스 확정 데이터 기준</p>
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+          <div className="rounded-md bg-slate-50 p-3">
+            <span className="font-bold text-slate-500">활동일</span>
+            <strong className="mt-1 block text-xl font-black text-slate-950">{formatNumber(lastWeekPace.activeDays)}일</strong>
+          </div>
+          <div className="rounded-md bg-slate-50 p-3">
+            <span className="font-bold text-slate-500">평균 페이스</span>
+            <strong className="mt-1 block text-xl font-black text-slate-950">
+              {lastWeekPace.averageDailyCalls === null ? "-" : `${lastWeekPace.averageDailyCalls}건/일`}
+            </strong>
+          </div>
+        </div>
+        <p className="mt-3 text-xs font-semibold leading-5 text-slate-500">
+          {lastWeekPace.hasEnoughDateData ? "활동일 기준 평균을 함께 표시합니다." : "시간/일자 데이터가 부족해 완료 콜 수 중심으로 표시합니다."}
+        </p>
+      </Panel>
+
+      <Panel>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-black">오늘 수기 입력</h2>
+            <p className="mt-1 text-xs font-bold text-slate-500">이 기기 기준 임시 저장 · 서버 저장 없음</p>
+          </div>
+          <Clock className="text-slate-400" size={22} />
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <label className="block">
+            <span className="text-sm font-bold text-slate-700">오늘 완료 콜 수</span>
+            <input
+              className="mt-2 h-12 w-full rounded-md border border-slate-300 px-3 text-base font-bold outline-none focus:border-blue-500"
+              inputMode="numeric"
+              min={0}
+              type="number"
+              value={paceInput.todayCompletedCalls}
+              onChange={(event) => updatePaceInput({ todayCompletedCalls: Number(event.target.value) })}
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-bold text-slate-700">운행 시작 시간</span>
+            <input
+              className="mt-2 h-12 w-full rounded-md border border-slate-300 px-3 text-base font-bold outline-none focus:border-blue-500"
+              type="time"
+              value={paceInput.todayStartTime}
+              onChange={(event) => updatePaceInput({ todayStartTime: event.target.value })}
+            />
+          </label>
+        </div>
+
+        <div className="mt-4 space-y-4">
+          <SegmentControl
+            label="컨디션"
+            options={conditionOptions}
+            value={paceInput.condition}
+            onChange={(value) => updatePaceInput({ condition: value as PaceCondition })}
+          />
+          <SegmentControl
+            label="식사 여부"
+            options={mealOptions}
+            value={paceInput.mealStatus}
+            onChange={(value) => updatePaceInput({ mealStatus: value as MealStatus })}
+          />
+          <label className="block">
+            <span className="text-sm font-bold text-slate-700">수면 시간</span>
+            <input
+              className="mt-2 h-12 w-full rounded-md border border-slate-300 px-3 text-base font-bold outline-none focus:border-blue-500"
+              inputMode="decimal"
+              max={24}
+              min={0}
+              step={0.5}
+              type="number"
+              value={paceInput.sleepHours}
+              onChange={(event) => updatePaceInput({ sleepHours: Number(event.target.value) })}
+            />
+          </label>
+          <SegmentControl
+            label="휴식 여부"
+            options={restOptions}
+            value={paceInput.restStatus}
+            onChange={(value) => updatePaceInput({ restStatus: value as RestStatus })}
+          />
+        </div>
+      </Panel>
+
+      <Panel>
+        <div className="flex items-start gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+            <Target size={22} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-black">이번 주 목표</h2>
+            <p className="mt-1 text-sm leading-5 text-slate-500">오늘 입력값과 목표 콜 수를 비교합니다.</p>
+          </div>
+        </div>
+        <label className="mt-4 block">
+          <span className="text-sm font-bold text-slate-700">이번 주 목표 콜 수</span>
+          <input
+            className="mt-2 h-12 w-full rounded-md border border-slate-300 px-3 text-base font-bold outline-none focus:border-blue-500"
+            inputMode="numeric"
+            min={1}
+            type="number"
+            value={paceInput.weeklyGoalCalls}
+            onChange={(event) => updatePaceInput({ weeklyGoalCalls: Number(event.target.value) })}
+          />
+        </label>
+        <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 p-4 text-blue-950">
+          <span className="text-sm font-bold text-blue-700">목표까지 필요한 추가 콜 수</span>
+          <strong className="mt-1 block text-4xl font-black">{formatNumber(goalProgress.additionalCallsNeeded)}건</strong>
+          <p className="mt-3 text-sm font-bold leading-6">{goalProgress.recommendedPaceText}</p>
+          <p className="mt-1 text-sm leading-6 text-blue-900">{goalProgress.nextAction}</p>
+        </div>
+      </Panel>
+
+      <Panel className={paceToneClass[recommendation.tone]}>
+        <div className="flex items-start gap-3">
+          <CheckCircle2 className="mt-0.5 shrink-0" size={22} />
+          <div>
+            <h2 className="text-lg font-black">추천 행동</h2>
+            <p className="mt-2 text-sm font-bold leading-6">{recommendation.title}</p>
+            <p className="mt-1 text-sm leading-6">{recommendation.message}</p>
+          </div>
+        </div>
+      </Panel>
+
+      <Panel>
+        <div className="flex items-start gap-3">
+          <Coffee className="mt-0.5 text-amber-700" size={22} />
+          <div>
+            <h2 className="text-lg font-black">주간형 / 야간형 루틴</h2>
+            <p className="mt-1 text-sm leading-5 text-slate-500">나에게 맞는 운행 리듬을 선택하세요.</p>
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {routineOptions.map((option) => {
+            const Icon = option.icon;
+            const selected = paceInput.routineType === option.value;
+            return (
+              <button
+                className={`flex h-12 items-center justify-center gap-2 rounded-md border text-sm font-black ${selected ? "border-blue-500 bg-blue-50 text-blue-800" : "border-slate-200 bg-white text-slate-600"}`}
+                key={option.value}
+                onClick={() => updatePaceInput({ routineType: option.value })}
+                type="button"
+              >
+                <Icon size={17} />
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-4 rounded-md bg-slate-50 p-3">
+          <p className="text-sm font-black text-slate-950">{routine.title}</p>
+          <div className="mt-3 space-y-2">
+            {routine.points.map((point) => (
+              <p className="text-sm leading-5 text-slate-600" key={point}>{point}</p>
+            ))}
+          </div>
+        </div>
+      </Panel>
+
+      <Panel>
+        <div className="flex items-start gap-3">
+          <Music className="mt-0.5 text-violet-700" size={22} />
+          <div>
+            <h2 className="text-lg font-black">음악 모드 추천</h2>
+            <p className="mt-1 text-sm leading-5 text-slate-500">이번 단계는 선택 UI만 제공하며 음악 재생은 하지 않습니다.</p>
+          </div>
+        </div>
+        <div className="mt-4 space-y-2">
+          {musicModes.map((mode) => {
+            const selected = paceInput.musicModeId === mode.modeId;
+            return (
+              <button
+                className={`w-full rounded-md border p-3 text-left ${selected ? "border-violet-400 bg-violet-50 text-violet-950" : "border-slate-200 bg-white text-slate-700"}`}
+                key={mode.modeId}
+                onClick={() => updatePaceInput({ musicModeId: mode.modeId as MusicModeId })}
+                type="button"
+              >
+                <span className="block text-sm font-black">{mode.label}</span>
+                <span className="mt-1 block text-xs font-semibold leading-5">{mode.description}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-4 rounded-md bg-violet-50 p-3 text-sm leading-6 text-violet-950">
+          <strong className="font-black">{selectedMusicMode.label}</strong>
+          <p className="mt-1">{selectedMusicMode.safetyNote}</p>
+        </div>
+      </Panel>
+    </section>
+  );
+}
+
+function readStoredPaceCheckInput(storageKey: string, completedCount: number): PaceCheckInput {
+  const fallback = createDefaultPaceCheckInput(completedCount);
+  if (typeof window === "undefined") return fallback;
+
+  try {
+    const saved = window.localStorage.getItem(storageKey);
+    if (!saved) return fallback;
+    const parsed = JSON.parse(saved) as Partial<PaceCheckInput>;
+    return normalizePaceCheckInput({ ...fallback, ...parsed } as PaceCheckInput);
+  } catch {
+    return fallback;
+  }
+}
+
+function SegmentControl<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div>
+      <p className="text-sm font-bold text-slate-700">{label}</p>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        {options.map((option) => {
+          const selected = option.value === value;
+          return (
+            <button
+              className={`h-11 rounded-md border text-sm font-black ${selected ? "border-blue-500 bg-blue-50 text-blue-800" : "border-slate-200 bg-white text-slate-600"}`}
+              key={option.value}
+              onClick={() => onChange(option.value)}
+              type="button"
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function RiderHome({ metric, latestWeekOrders }: { metric: RiderMetric; latestWeekOrders: OrderRecord[] }) {
   return (
     <>
@@ -934,6 +1258,7 @@ function RiderHome({ metric, latestWeekOrders }: { metric: RiderMetric; latestWe
         <h2 className="text-lg font-black">최신 업로드 주차 운행 요약</h2>
         <p className="mt-2 text-sm leading-6 text-slate-500">관리자가 업로드한 엑셀 데이터를 기준으로 집계한 과거 운행 이력입니다.</p>
       </Panel>
+      <RiderPaceCheck key={`${metric.riderId}-${latestWeekOrders[0]?.weekCode ?? metric.weekLabel}`} metric={metric} latestWeekOrders={latestWeekOrders} />
       <Panel>
         <h2 className="text-lg font-black">최근 운행 내역</h2>
         <div className="mt-3">

@@ -1,0 +1,249 @@
+import type { OrderRecord, RiderMetric } from "./domain";
+
+export type PaceCondition = "good" | "normal" | "tired" | "risk";
+export type MealStatus = "done" | "not_yet" | "skipped";
+export type RestStatus = "enough" | "short" | "none";
+export type RoutineType = "day" | "night";
+export type MusicModeId = "call_tempo" | "rest_relax" | "sleep_winddown";
+export type PaceTone = "good" | "warn" | "danger" | "blue";
+
+export interface PaceCheckInput {
+  todayCompletedCalls: number;
+  todayStartTime: string;
+  condition: PaceCondition;
+  mealStatus: MealStatus;
+  sleepHours: number;
+  restStatus: RestStatus;
+  weeklyGoalCalls: number;
+  routineType: RoutineType;
+  musicModeId: MusicModeId;
+}
+
+export interface LastWeekPace {
+  completedCalls: number;
+  activeDays: number;
+  averageDailyCalls: number | null;
+  hasEnoughDateData: boolean;
+}
+
+export interface GoalProgress {
+  additionalCallsNeeded: number;
+  recommendedPaceText: string;
+  nextAction: string;
+}
+
+export interface PaceRecommendation {
+  title: string;
+  message: string;
+  tone: PaceTone;
+}
+
+export interface RoutineCoaching {
+  type: RoutineType;
+  label: string;
+  title: string;
+  points: string[];
+}
+
+export interface MusicMode {
+  modeId: MusicModeId;
+  label: string;
+  description: string;
+  safetyNote: string;
+  futureExternalUrl: string | null;
+}
+
+export const defaultPaceCheckInput: PaceCheckInput = {
+  todayCompletedCalls: 0,
+  todayStartTime: "",
+  condition: "normal",
+  mealStatus: "not_yet",
+  sleepHours: 6,
+  restStatus: "short",
+  weeklyGoalCalls: 120,
+  routineType: "night",
+  musicModeId: "call_tempo",
+};
+
+export const routineCoachings: Record<RoutineType, RoutineCoaching> = {
+  day: {
+    type: "day",
+    label: "주간형",
+    title: "낮 운행은 식사와 짧은 휴식이 페이스를 지킵니다.",
+    points: ["점심 전후에 물과 식사를 먼저 챙기세요.", "오후에는 짧게 쉬고 저녁 구간으로 이어가세요.", "졸림이 오면 콜 목표보다 회복을 우선하세요."],
+  },
+  night: {
+    type: "night",
+    label: "야간형",
+    title: "밤 운행은 무리한 연장보다 컨디션 확인이 먼저입니다.",
+    points: ["저녁 전 식사를 건너뛰지 마세요.", "밤에는 피곤함을 느끼면 바로 쉬는 기준을 잡으세요.", "마감 후 수면 시간을 먼저 확보하세요."],
+  },
+};
+
+export const musicModes: MusicMode[] = [
+  {
+    modeId: "call_tempo",
+    label: "콜 수행 템포 모드",
+    description: "집중을 깨지 않는 일정한 템포를 고르는 모드입니다.",
+    safetyNote: "운행 중 조작하지 말고 정차 후 선택하세요.",
+    futureExternalUrl: null,
+  },
+  {
+    modeId: "rest_relax",
+    label: "휴식 릴랙스 모드",
+    description: "짧은 휴식 때 긴장을 낮추는 차분한 분위기를 고르는 모드입니다.",
+    safetyNote: "휴식 장소에서만 확인하고 이동 중 조작은 피하세요.",
+    futureExternalUrl: null,
+  },
+  {
+    modeId: "sleep_winddown",
+    label: "수면 유도 모드",
+    description: "운행을 마친 뒤 잠들기 전 속도를 낮추는 모드입니다.",
+    safetyNote: "운행 종료 후 사용하는 용도이며 주행 중 재생을 전제로 하지 않습니다.",
+    futureExternalUrl: null,
+  },
+];
+
+export function createDefaultPaceCheckInput(lastWeekCompletedCalls: number): PaceCheckInput {
+  return {
+    ...defaultPaceCheckInput,
+    weeklyGoalCalls: Math.max(1, Math.round(lastWeekCompletedCalls || defaultPaceCheckInput.weeklyGoalCalls)),
+  };
+}
+
+export function normalizePaceCheckInput(input: PaceCheckInput): PaceCheckInput {
+  return {
+    ...input,
+    todayCompletedCalls: clampWholeNumber(input.todayCompletedCalls),
+    sleepHours: clampOneDecimal(input.sleepHours, 0, 24),
+    weeklyGoalCalls: Math.max(1, clampWholeNumber(input.weeklyGoalCalls)),
+  };
+}
+
+export function getLastWeekPace(metric: RiderMetric, latestWeekOrders: OrderRecord[] = []): LastWeekPace {
+  const completedCalls = Math.max(0, metric.completedCount || latestWeekOrders.filter((order) => order.status === "완료").length);
+  const activeDaysFromOrders = countOrderActiveDays(latestWeekOrders);
+  const activeDays = Math.max(0, metric.activeDays || activeDaysFromOrders);
+  const averageDailyCalls = completedCalls > 0 && activeDays > 0 ? roundOneDecimal(completedCalls / activeDays) : null;
+
+  return {
+    completedCalls,
+    activeDays,
+    averageDailyCalls,
+    hasEnoughDateData: completedCalls > 0 && activeDays > 0,
+  };
+}
+
+export function calculateGoalProgress(input: PaceCheckInput): GoalProgress {
+  const normalized = normalizePaceCheckInput(input);
+  const additionalCallsNeeded = Math.max(normalized.weeklyGoalCalls - normalized.todayCompletedCalls, 0);
+
+  if (additionalCallsNeeded === 0) {
+    return {
+      additionalCallsNeeded,
+      recommendedPaceText: "오늘 입력 기준으로 주간 목표에 닿았습니다.",
+      nextAction: "컨디션을 확인하고 무리하지 않는 선에서 마무리하세요.",
+    };
+  }
+
+  if (additionalCallsNeeded <= 5) {
+    return {
+      additionalCallsNeeded,
+      recommendedPaceText: "작은 목표만 남았습니다.",
+      nextAction: "쉬는 시간을 확보한 뒤 남은 목표를 한 묶음으로 정리하세요.",
+    };
+  }
+
+  return {
+    additionalCallsNeeded,
+    recommendedPaceText: `${additionalCallsNeeded}건을 2~3개 묶음으로 나눠 보세요.`,
+    nextAction: "식사와 휴식 상태를 먼저 확인하고 다음 구간 목표를 작게 잡으세요.",
+  };
+}
+
+export function buildPaceRecommendation(input: PaceCheckInput, lastWeekPace: LastWeekPace): PaceRecommendation {
+  const normalized = normalizePaceCheckInput(input);
+
+  if (normalized.condition === "risk") {
+    return {
+      title: "안전 우선",
+      message: "컨디션이 위험이면 콜 목표보다 멈춤이 먼저입니다. 바로 쉬고 상태를 확인하세요.",
+      tone: "danger",
+    };
+  }
+
+  if (normalized.sleepHours < 5) {
+    return {
+      title: "수면 부족 주의",
+      message: "수면이 5시간 미만입니다. 오늘은 목표를 낮추고 쉬는 시간을 먼저 잡으세요.",
+      tone: "danger",
+    };
+  }
+
+  if (normalized.mealStatus === "skipped") {
+    return {
+      title: "식사 먼저",
+      message: "식사를 건너뛰면 후반 페이스가 쉽게 흔들립니다. 다음 콜 묶음 전 식사를 챙기세요.",
+      tone: "warn",
+    };
+  }
+
+  if (normalized.restStatus === "none") {
+    return {
+      title: "휴식 필요",
+      message: "오늘 휴식이 없습니다. 짧게라도 멈추고 다음 구간을 시작하세요.",
+      tone: "warn",
+    };
+  }
+
+  if (isBelowLastWeekPace(normalized, lastWeekPace)) {
+    return {
+      title: "페이스 보강",
+      message: "오늘 입력값이 지난주 활동일 평균보다 낮습니다. 다음 구간은 작은 목표로 다시 잡아보세요.",
+      tone: "blue",
+    };
+  }
+
+  return {
+    title: normalized.condition === "good" ? "좋은 흐름" : "무난한 흐름",
+    message: "오늘 입력값은 안정적입니다. 식사와 휴식만 놓치지 않으면 페이스를 이어갈 수 있습니다.",
+    tone: "good",
+  };
+}
+
+export function getRoutineCoaching(type: RoutineType): RoutineCoaching {
+  return routineCoachings[type];
+}
+
+export function getMusicMode(modeId: MusicModeId): MusicMode {
+  return musicModes.find((mode) => mode.modeId === modeId) ?? musicModes[0];
+}
+
+function isBelowLastWeekPace(input: PaceCheckInput, lastWeekPace: LastWeekPace): boolean {
+  if (!lastWeekPace.averageDailyCalls) return false;
+  return input.todayCompletedCalls < Math.ceil(lastWeekPace.averageDailyCalls * 0.7);
+}
+
+function countOrderActiveDays(orders: OrderRecord[]): number {
+  const dates = new Set(
+    orders
+      .filter((order) => order.status === "완료")
+      .map((order) => order.acceptedAt.split(" ")[0])
+      .filter(Boolean),
+  );
+  return dates.size;
+}
+
+function clampWholeNumber(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.round(value));
+}
+
+function clampOneDecimal(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, Math.round(value * 10) / 10));
+}
+
+function roundOneDecimal(value: number): number {
+  return Math.round(value * 10) / 10;
+}
