@@ -28,15 +28,10 @@ import {
 import { useState } from "react";
 import {
   adminTabs,
-  coachingMessages,
   formatNumber,
   formatRate,
   formatWon,
-  getAdminSummary,
-  getLatestWeekOrdersForUser,
-  getRiderMetricsForUser,
   login,
-  riderMetrics,
   riderTabs,
   segmentLabels,
   validateUploadFileName,
@@ -56,6 +51,15 @@ import {
   type OrderDetailParseResult,
   type UploadIssueType,
 } from "@/lib/excel-upload";
+import {
+  buildLatestUploadedWeekData,
+  buildSampleWeekData,
+  getAdminDashboardSummary,
+  getWeekCoachingForRider,
+  getWeekMetricForUser,
+  getWeekOrdersForUser,
+  type LatestUploadedWeekData,
+} from "@/lib/week-data";
 
 const adminIcons: Record<AdminScreen, LucideIcon> = {
   dashboard: Home,
@@ -105,6 +109,17 @@ function ScreenHeader({
 
 function Panel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <section className={`rounded-lg border border-slate-200 bg-white p-4 shadow-sm ${className}`}>{children}</section>;
+}
+
+function DataSourceNotice({ weekData }: { weekData: LatestUploadedWeekData }) {
+  const isUploaded = weekData.source === "uploaded";
+  return (
+    <div className={`rounded-md border px-3 py-2 text-xs font-bold leading-5 ${isUploaded ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+      {isUploaded
+        ? `업로드 데이터 적용 중 · ${weekData.weekLabel} · ${weekData.fileName}`
+        : "샘플 데이터 표시 중 · 엑셀 업로드 후 최신 업로드 데이터가 우선 적용됩니다."}
+    </div>
+  );
 }
 
 function StatTile({
@@ -298,16 +313,17 @@ function AppChrome({
   );
 }
 
-function AdminDashboard() {
-  const summary = getAdminSummary();
-  const topCompleted = Math.max(...riderMetrics.map((metric) => metric.completedCount));
+function AdminDashboard({ weekData }: { weekData: LatestUploadedWeekData }) {
+  const summary = getAdminDashboardSummary(weekData);
+  const topCompleted = Math.max(...weekData.metrics.map((metric) => metric.completedCount), 1);
   return (
     <>
-      <ScreenHeader eyebrow="Admin Dashboard" title="주간 대시보드" description="5월4주차 원천 엑셀 기준 운영 현황입니다." />
+      <ScreenHeader eyebrow="Admin Dashboard" title="주간 대시보드" description={`${weekData.weekLabel} ${weekData.sourceLabel} 기준 운영 현황입니다.`} />
+      <DataSourceNotice weekData={weekData} />
       <div className="grid grid-cols-2 gap-3">
         <StatTile label="완료 콜" value={`${formatNumber(summary.completed)}건`} caption="업로드 데이터 기준" tone="blue" />
         <StatTile label="운영 라이더" value={`${summary.activeRiders}명`} caption="활성 기준" tone="good" />
-        <StatTile label="검수 이슈" value={`${summary.issueRows}건`} caption="확인 필요" tone="warn" />
+        <StatTile label="검수 이슈" value={`${summary.issueCount}건`} caption={summary.issueRows ? `${summary.issueRows}개 행, 중복 포함` : "확인 필요 없음"} tone={summary.issueCount ? "warn" : "good"} />
         <StatTile label="노출 메시지" value={`${summary.visibleMessages}건`} caption="라이더 표시 ON" />
       </div>
       <Panel>
@@ -319,7 +335,7 @@ function AdminDashboard() {
           <ChevronRight size={20} className="text-slate-400" />
         </div>
         <div className="space-y-4">
-          {riderMetrics.map((metric) => (
+          {weekData.metrics.map((metric) => (
             <BarRow key={metric.riderId} label={`${metric.riderName} · ${metric.grade}`} value={metric.completedCount} max={topCompleted} />
           ))}
         </div>
@@ -327,16 +343,24 @@ function AdminDashboard() {
       <Panel>
         <h2 className="text-lg font-black">최근 업로드 요약</h2>
         <div className="mt-3 grid gap-2 text-sm">
-          <div className="flex justify-between"><span className="text-slate-500">사용 파일</span><strong>동구바로_대전_동구중앙_2026_05-4.xlsx</strong></div>
+          <div className="flex justify-between gap-3"><span className="text-slate-500">데이터 상태</span><strong>{weekData.sourceLabel}</strong></div>
+          <div className="flex justify-between gap-3"><span className="text-slate-500">사용 파일</span><strong className="text-right">{weekData.fileName}</strong></div>
+          <div className="flex justify-between"><span className="text-slate-500">기준 주차</span><strong>{weekData.weekLabel}</strong></div>
           <div className="flex justify-between"><span className="text-slate-500">기본 시트</span><strong>오더별 상세 내역서</strong></div>
-          <div className="flex justify-between"><span className="text-slate-500">파싱 상태</span><strong className="text-emerald-700">반영 가능</strong></div>
+          <div className="flex justify-between"><span className="text-slate-500">파싱 상태</span><strong className={weekData.source === "uploaded" ? "text-emerald-700" : "text-amber-700"}>{weekData.source === "uploaded" ? "앱 화면 적용됨" : "업로드 대기"}</strong></div>
         </div>
       </Panel>
     </>
   );
 }
 
-function AdminUpload() {
+function AdminUpload({
+  weekData,
+  onUploadSuccess,
+}: {
+  weekData: LatestUploadedWeekData;
+  onUploadSuccess: (result: OrderDetailParseResult) => void;
+}) {
   const [selectedFileName, setSelectedFileName] = useState("");
   const [sheetNames, setSheetNames] = useState<string[]>([]);
   const [parseResult, setParseResult] = useState<OrderDetailParseResult | null>(null);
@@ -387,6 +411,9 @@ function AdminUpload() {
       const result = parseOrderDetailRows({ fileName: file.name, rows });
       setParseResult(result);
       setParseMessage(result.errorMessage ?? (result.status === "ready" ? "브라우저에서 엑셀 파싱을 완료했습니다." : "파싱 결과를 확인해 주세요."));
+      if (result.status === "ready") {
+        onUploadSuccess(result);
+      }
     } catch (error) {
       setParseMessage(error instanceof Error ? error.message : "엑셀 파일을 읽는 중 오류가 발생했습니다.");
     } finally {
@@ -401,6 +428,7 @@ function AdminUpload() {
         title="엑셀 업로드"
         description="DB 저장 없이 브라우저에서 선택한 원천 엑셀을 파싱하고 저장 전 검수 미리보기를 확인합니다."
       />
+      <DataSourceNotice weekData={weekData} />
       <Panel>
         <label className="block rounded-lg border border-dashed border-blue-300 bg-blue-50 p-4">
           <span className="flex items-center gap-2 text-sm font-black text-blue-900">
@@ -540,15 +568,31 @@ function AdminUpload() {
   );
 }
 
-function AdminInspect() {
+function AdminInspect({ weekData }: { weekData: LatestUploadedWeekData }) {
+  const summary = getAdminDashboardSummary(weekData);
+  const parseResult = weekData.parseResult;
+  const issueSummaryEntries = parseResult
+    ? (Object.entries(uploadIssueLabels) as [UploadIssueType, string][]).map(([type, label]) => ({
+        title: label,
+        count: parseResult.issueSummary[type],
+        body: issueTypeDescription(type),
+      }))
+    : [
+        { title: "배달타입 누락", count: 0, body: "배달타입이 비어 있으면 저장 전 확인 대상으로 분류합니다." },
+        { title: "피크타임 누락", count: 0, body: "Post_Lunch, Post_Dinner 등 구간 분석에 필요한 값입니다." },
+        { title: "시간값 누락", count: 0, body: "배정/수락/배달/소요시간 중 빈 값이 있으면 행 단위 검수가 필요합니다." },
+        { title: "배달타입 정규화", count: 0, body: "0은 단건배달, 멀티배달1~5는 멀티배달 계열로 집계합니다." },
+      ];
+
   return (
     <>
       <ScreenHeader eyebrow="Inspection" title="업로드 검수" description="저장 전 확인해야 할 데이터 품질 이슈를 행 단위와 이슈 단위로 나누어 봅니다." />
+      <DataSourceNotice weekData={weekData} />
       <div className="grid grid-cols-2 gap-3">
-        <StatTile label="총행수" value="4,388행" caption="빈 행 제외, 헤더 제외" tone="blue" />
-        <StatTile label="유효 오더 후보" value="4,115건" caption="필수값 통과" tone="good" />
-        <StatTile label="확인 필요 행" value="273행" caption="누락값 포함 행" tone="warn" />
-        <StatTile label="이슈 건수" value="819건" caption="복수 이슈 중복 포함" tone="warn" />
+        <StatTile label="총행수" value={`${formatNumber(parseResult?.totalRows ?? weekData.orders.length)}행`} caption="빈 행 제외, 헤더 제외" tone="blue" />
+        <StatTile label="유효 오더 후보" value={`${formatNumber(parseResult?.validOrderCount ?? weekData.orders.length)}건`} caption="필수값 통과" tone="good" />
+        <StatTile label="확인 필요 행" value={`${formatNumber(summary.issueRows)}행`} caption="누락값 포함 행" tone={summary.issueRows ? "warn" : "good"} />
+        <StatTile label="이슈 건수" value={`${formatNumber(summary.issueCount)}건`} caption="복수 이슈 중복 포함" tone={summary.issueCount ? "warn" : "good"} />
       </div>
       <Panel>
         <h2 className="text-lg font-black">숫자 기준</h2>
@@ -557,15 +601,13 @@ function AdminInspect() {
       <Panel>
         <h2 className="text-lg font-black">이슈 유형</h2>
         <div className="mt-3 space-y-2">
-          {[
-            ["배달타입 누락", "배달타입이 비어 있으면 저장 전 확인 대상으로 분류합니다."],
-            ["피크타임 누락", "Post_Lunch, Post_Dinner 등 구간 분석에 필요한 값입니다."],
-            ["시간값 누락", "배정/수락/배달/소요시간 중 빈 값이 있으면 행 단위 검수가 필요합니다."],
-            ["배달타입 정규화", "0은 단건배달, 멀티배달1~5는 멀티배달 계열로 집계합니다."],
-          ].map(([title, body]) => (
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-3" key={title}>
-              <strong className="text-sm text-amber-900">{title}</strong>
-              <p className="mt-1 text-xs leading-5 text-amber-800">{body}</p>
+          {issueSummaryEntries.map(({ title, count, body }) => (
+            <div className={`rounded-md border p-3 ${count ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-slate-50"}`} key={title}>
+              <div className="flex items-center justify-between gap-3">
+                <strong className={count ? "text-sm text-amber-900" : "text-sm text-slate-700"}>{title}</strong>
+                <span className={`rounded-md px-2 py-1 text-xs font-black ${count ? "bg-amber-100 text-amber-900" : "bg-white text-slate-500"}`}>{formatNumber(count)}건</span>
+              </div>
+              <p className={`mt-1 text-xs leading-5 ${count ? "text-amber-800" : "text-slate-500"}`}>{body}</p>
             </div>
           ))}
         </div>
@@ -574,21 +616,50 @@ function AdminInspect() {
   );
 }
 
-function AdminCoaching() {
-  const [selectedId, setSelectedId] = useState("r-001");
-  const [messages, setMessages] = useState<CoachingMessage[]>(coachingMessages);
-  const selectedMetric = riderMetrics.find((metric) => metric.riderId === selectedId) ?? riderMetrics[0];
-  const selectedMessage = messages.find((message) => message.riderId === selectedMetric.riderId) ?? messages[0];
+function issueTypeDescription(type: UploadIssueType) {
+  const descriptions: Record<UploadIssueType, string> = {
+    delivery_type_missing: "배달타입이 비어 있으면 저장 전 확인 대상으로 분류합니다.",
+    delivery_type_unknown: "0은 단건배달, 멀티배달1~5는 멀티배달 계열로 집계하고 나머지는 확인 대상으로 둡니다.",
+    peak_time_missing: "Post_Lunch, Post_Dinner 등 구간 분석에 필요한 값입니다.",
+    rider_name_missing: "라이더별 집계와 권한 매핑에 필요한 이름 값입니다.",
+    order_number_missing: "오더 중복 확인과 이력 표시 기준이 되는 주문번호 값입니다.",
+    time_value_missing: "배정/수락/배달/소요시간 중 빈 값이 있으면 행 단위 검수가 필요합니다.",
+  };
+  return descriptions[type];
+}
+
+function AdminCoaching({ weekData }: { weekData: LatestUploadedWeekData }) {
+  const [selectedId, setSelectedId] = useState(weekData.metrics[0]?.riderId ?? "");
+  const [messages, setMessages] = useState<CoachingMessage[]>(weekData.coachingMessages);
+  const selectedMetric = weekData.metrics.find((metric) => metric.riderId === selectedId) ?? weekData.metrics[0];
+  const selectedMessage = selectedMetric
+    ? messages.find((message) => message.riderId === selectedMetric.riderId) ?? messages[0]
+    : undefined;
 
   function updateMessage(patch: Partial<CoachingMessage>) {
+    if (!selectedMessage) return;
     setMessages((current) =>
       current.map((message) => (message.riderId === selectedMessage.riderId ? { ...message, ...patch } : message)),
+    );
+  }
+
+  if (!selectedMetric || !selectedMessage) {
+    return (
+      <>
+        <ScreenHeader eyebrow="Coaching" title="코칭 메시지 관리" description="자동 메시지를 수정하고 라이더 노출 여부를 관리합니다." />
+        <DataSourceNotice weekData={weekData} />
+        <Panel>
+          <h2 className="text-lg font-black">표시할 라이더 데이터가 없습니다.</h2>
+          <p className="mt-2 text-sm text-slate-500">업로드 데이터의 유효 오더 후보를 먼저 확인해 주세요.</p>
+        </Panel>
+      </>
     );
   }
 
   return (
     <>
       <ScreenHeader eyebrow="Coaching" title="코칭 메시지 관리" description="자동 메시지를 수정하고 라이더 노출 여부를 관리합니다." />
+      <DataSourceNotice weekData={weekData} />
       <Panel>
         <label className="block">
           <span className="text-sm font-bold text-slate-700">라이더 선택</span>
@@ -597,7 +668,7 @@ function AdminCoaching() {
             value={selectedId}
             onChange={(event) => setSelectedId(event.target.value)}
           >
-            {riderMetrics.map((metric) => (
+            {weekData.metrics.map((metric) => (
               <option key={metric.riderId} value={metric.riderId}>
                 {metric.riderName} · {metric.completedCount}건
               </option>
@@ -849,8 +920,7 @@ function RiderCoachingContent({ metric, message, preview = false }: { metric: Ri
   );
 }
 
-function RiderCoaching({ metric }: { metric: RiderMetric }) {
-  const message = coachingMessages.find((item) => item.riderId === metric.riderId);
+function RiderCoaching({ metric, message }: { metric: RiderMetric; message?: CoachingMessage }) {
   return (
     <>
       <ScreenHeader eyebrow="My Coaching" title="내코칭" description="관리자가 노출한 코칭과 내 운행 인사이트만 확인합니다." />
@@ -880,38 +950,61 @@ function RiderMy({ user, metric }: { user: UserSession; metric: RiderMetric }) {
   );
 }
 
-function AdminScreens({ screen }: { screen: AdminScreen }) {
-  if (screen === "upload") return <AdminUpload />;
-  if (screen === "inspect") return <AdminInspect />;
-  if (screen === "coaching") return <AdminCoaching />;
+function AdminScreens({
+  screen,
+  weekData,
+  onUploadSuccess,
+}: {
+  screen: AdminScreen;
+  weekData: LatestUploadedWeekData;
+  onUploadSuccess: (result: OrderDetailParseResult) => void;
+}) {
+  if (screen === "upload") return <AdminUpload weekData={weekData} onUploadSuccess={onUploadSuccess} />;
+  if (screen === "inspect") return <AdminInspect weekData={weekData} />;
+  if (screen === "coaching") {
+    return <AdminCoaching key={`${weekData.source}-${weekData.weekCode}-${weekData.fileName}`} weekData={weekData} />;
+  }
   if (screen === "more") return <AdminMore />;
-  return <AdminDashboard />;
+  return <AdminDashboard weekData={weekData} />;
 }
 
-function RiderScreens({ screen, user }: { screen: RiderScreen; user: UserSession }) {
-  const metrics = getRiderMetricsForUser(user)[0];
-  const latestWeekOrders = getLatestWeekOrdersForUser(user);
+function RiderScreens({ screen, user, weekData }: { screen: RiderScreen; user: UserSession; weekData: LatestUploadedWeekData }) {
+  const metrics = getWeekMetricForUser(weekData, user);
+  const latestWeekOrders = getWeekOrdersForUser(weekData, user);
+  const message = metrics ? getWeekCoachingForRider(weekData, metrics.riderId) : undefined;
 
   if (!metrics) {
     return (
-      <Panel>
-        <h1 className="text-xl font-black">연결된 라이더 데이터가 없습니다.</h1>
-        <p className="mt-2 text-sm text-slate-500">관리자에게 계정 매핑을 확인해 주세요.</p>
-      </Panel>
+      <>
+        <DataSourceNotice weekData={weekData} />
+        <Panel>
+          <h1 className="text-xl font-black">연결된 라이더 데이터가 없습니다.</h1>
+          <p className="mt-2 text-sm text-slate-500">관리자에게 계정 매핑을 확인해 주세요.</p>
+        </Panel>
+      </>
     );
   }
 
-  if (screen === "orders") return <RiderOrders latestWeekOrders={latestWeekOrders} />;
-  if (screen === "map") return <RiderMap latestWeekOrders={latestWeekOrders} />;
-  if (screen === "coaching") return <RiderCoaching metric={metrics} />;
-  if (screen === "my") return <RiderMy user={user} metric={metrics} />;
-  return <RiderHome metric={metrics} latestWeekOrders={latestWeekOrders} />;
+  let content: React.ReactNode;
+  if (screen === "orders") content = <RiderOrders latestWeekOrders={latestWeekOrders} />;
+  else if (screen === "map") content = <RiderMap latestWeekOrders={latestWeekOrders} />;
+  else if (screen === "coaching") content = <RiderCoaching metric={metrics} message={message} />;
+  else if (screen === "my") content = <RiderMy user={user} metric={metrics} />;
+  else content = <RiderHome metric={metrics} latestWeekOrders={latestWeekOrders} />;
+
+  return (
+    <>
+      <DataSourceNotice weekData={weekData} />
+      {content}
+    </>
+  );
 }
 
 export function RiderCoachingApp() {
   const [user, setUser] = useState<UserSession | null>(null);
   const [adminScreen, setAdminScreen] = useState<AdminScreen>("dashboard");
   const [riderScreen, setRiderScreen] = useState<RiderScreen>("home");
+  const [latestUploadedWeekData, setLatestUploadedWeekData] = useState<LatestUploadedWeekData>(() => buildSampleWeekData());
 
   const activeScreen = user?.role === "admin" ? adminScreen : riderScreen;
   function handleScreenChange(screen: AdminScreen | RiderScreen) {
@@ -920,12 +1013,20 @@ export function RiderCoachingApp() {
     else setRiderScreen(screen as RiderScreen);
   }
 
+  function handleUploadSuccess(result: OrderDetailParseResult) {
+    setLatestUploadedWeekData(buildLatestUploadedWeekData(result));
+  }
+
   if (!user) return <LoginScreen onLogin={setUser} />;
   if (user.accountStatus === "pending") return <PendingScreen user={user} onLogout={() => setUser(null)} />;
 
   return (
     <AppChrome user={user} active={activeScreen} onChange={handleScreenChange} onLogout={() => setUser(null)}>
-      {user.role === "admin" ? <AdminScreens screen={adminScreen} /> : <RiderScreens screen={riderScreen} user={user} />}
+      {user.role === "admin" ? (
+        <AdminScreens screen={adminScreen} weekData={latestUploadedWeekData} onUploadSuccess={handleUploadSuccess} />
+      ) : (
+        <RiderScreens screen={riderScreen} user={user} weekData={latestUploadedWeekData} />
+      )}
     </AppChrome>
   );
 }

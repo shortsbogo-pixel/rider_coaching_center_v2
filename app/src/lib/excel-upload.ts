@@ -32,11 +32,17 @@ export interface ParsedOrderPreview {
   riderName: string;
   orderNumber: string;
   storeName: string;
+  pickupArea: string;
+  dropoffArea: string;
+  assignedAt: unknown;
   acceptedAt: unknown;
   completedAt: unknown;
+  durationValue: unknown;
   peakTime: string;
+  distanceM: unknown;
   deliveryType: NormalizedDeliveryType;
   rawDeliveryType: unknown;
+  settlementAmount: unknown;
 }
 
 export interface RiderUploadSummary {
@@ -303,6 +309,8 @@ export function parseOrderDetailRows(input: {
     const riderName = cleanText(getCell(row, headerMap, "이름"));
     const orderNumber = cleanText(getCell(row, headerMap, "축약형 주문번호"));
     const storeName = cleanText(getCell(row, headerMap, "스토어명"));
+    const pickupArea = cleanText(getCell(row, headerMap, "픽업지역"));
+    const dropoffArea = cleanText(getCell(row, headerMap, "배달지역"));
     const peakTime = cleanText(getCell(row, headerMap, "피크타임"));
     const rawDeliveryType = getCell(row, headerMap, "배달타입");
     const deliveryType = normalizeDeliveryType(rawDeliveryType);
@@ -368,11 +376,17 @@ export function parseOrderDetailRows(input: {
         riderName,
         orderNumber,
         storeName,
+        pickupArea,
+        dropoffArea,
+        assignedAt: getCell(row, headerMap, "배정시간"),
         acceptedAt: getCell(row, headerMap, "수락시간"),
         completedAt: getCell(row, headerMap, "배달시간"),
+        durationValue: getCell(row, headerMap, "배달소요시간"),
         peakTime,
+        distanceM: getCell(row, headerMap, "배달거리(m)"),
         deliveryType: deliveryType.normalized,
         rawDeliveryType,
+        settlementAmount: getCell(row, headerMap, "정산금액"),
       });
     }
   });
