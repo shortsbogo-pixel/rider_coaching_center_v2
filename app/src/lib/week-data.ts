@@ -74,6 +74,14 @@ export function buildLatestUploadedWeekData(parseResult: OrderDetailParseResult)
   };
 }
 
+export function applyParsedUploadResult(
+  currentWeekData: LatestUploadedWeekData,
+  parseResult: OrderDetailParseResult,
+): LatestUploadedWeekData {
+  if (parseResult.status !== "ready") return currentWeekData;
+  return buildLatestUploadedWeekData(parseResult);
+}
+
 export function getAdminDashboardSummary(weekData: LatestUploadedWeekData): AdminDashboardSummary {
   const issueRows = weekData.parseResult ? new Set(weekData.parseResult.issues.map((issue) => issue.rowNumber)).size : 0;
   return {

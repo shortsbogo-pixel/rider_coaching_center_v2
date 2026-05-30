@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { login } from "./domain";
 import { parseOrderDetailRows } from "./excel-upload";
 import {
+  applyParsedUploadResult,
   buildLatestUploadedWeekData,
+  buildSampleWeekData,
   getAdminDashboardSummary,
   getWeekCoachingForRider,
   getWeekMetricForUser,
@@ -42,6 +44,21 @@ function makeRows(...dataRows: unknown[][]) {
 }
 
 describe("latest uploaded week data", () => {
+  it("falls back to sample data when no upload has been applied", () => {
+    const weekData = buildSampleWeekData();
+    const admin = login("admin", "admin1234");
+    const rider = login("rider1", "rider1234");
+    const summary = getAdminDashboardSummary(weekData);
+
+    expect(weekData.source).toBe("sample");
+    expect(weekData.sourceLabel).toBe("샘플 데이터");
+    expect(summary.completed).toBe(418);
+    expect(summary.activeRiders).toBe(2);
+    expect(getWeekOrdersForUser(weekData, admin!).length).toBe(4);
+    expect(getWeekOrdersForUser(weekData, rider!).every((order) => order.riderId === "r-001")).toBe(true);
+    expect(getWeekMetricForUser(weekData, rider!)?.riderId).toBe("r-001");
+  });
+
   it("builds dashboard, coaching, and rider-scoped data from a parsed upload", () => {
     const parseResult = parseOrderDetailRows({
       fileName: "동구바로_대전_동구중앙_2026_05-4.xlsx",
@@ -169,7 +186,51 @@ describe("latest uploaded week data", () => {
     });
     expect(getWeekOrdersForUser(weekData, rider!).map((order) => order.id)).toEqual(["ORD-1", "ORD-2"]);
     expect(getWeekOrdersForUser(weekData, rider!).every((order) => order.riderId === "r-001")).toBe(true);
+    expect(getWeekOrdersForUser(weekData, login("pending", "pending1234")!)).toEqual([]);
     expect(getWeekMetricForUser(weekData, rider!)?.riderName).toBe("김수환");
     expect(getWeekCoachingForRider(weekData, "r-001")?.autoMessage).toContain("김수환님");
+  });
+
+  it("keeps the current week data when a parsed upload is not ready", () => {
+    const readyParseResult = parseOrderDetailRows({
+      fileName: "동구바로_대전_동구중앙_2026_05-4.xlsx",
+      rows: makeRows([
+        "",
+        "김수환",
+        "ORD-1",
+        "가게A",
+        "대전 동구",
+        "대전 중구",
+        "2026-05-20 11:50",
+        "2026-05-20 12:01",
+        "2026-05-20 12:21",
+        "00:20:00",
+        "Post_Lunch",
+        2100,
+        0,
+        1000,
+        2000,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        6500,
+      ]),
+    });
+    const uploadedWeekData = buildLatestUploadedWeekData(readyParseResult);
+    const blockedParseResult = {
+      ...readyParseResult,
+      status: "blocked" as const,
+      fileName: "동구바로_대전_동구중앙_2026_05-4_정산.xlsx",
+      errorMessage: "정산/최종 파일은 업로드할 수 없습니다.",
+    };
+
+    expect(applyParsedUploadResult(uploadedWeekData, blockedParseResult)).toBe(uploadedWeekData);
+    expect(applyParsedUploadResult(buildSampleWeekData(), readyParseResult).source).toBe("uploaded");
   });
 });

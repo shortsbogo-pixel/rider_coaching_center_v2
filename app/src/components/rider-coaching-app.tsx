@@ -52,7 +52,7 @@ import {
   type UploadIssueType,
 } from "@/lib/excel-upload";
 import {
-  buildLatestUploadedWeekData,
+  applyParsedUploadResult,
   buildSampleWeekData,
   getAdminDashboardSummary,
   getWeekCoachingForRider,
@@ -115,9 +115,16 @@ function DataSourceNotice({ weekData }: { weekData: LatestUploadedWeekData }) {
   const isUploaded = weekData.source === "uploaded";
   return (
     <div className={`rounded-md border px-3 py-2 text-xs font-bold leading-5 ${isUploaded ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
-      {isUploaded
-        ? `업로드 데이터 적용 중 · ${weekData.weekLabel} · ${weekData.fileName}`
-        : "샘플 데이터 표시 중 · 엑셀 업로드 후 최신 업로드 데이터가 우선 적용됩니다."}
+      <p>
+        {isUploaded
+          ? `업로드 데이터 적용 중 · ${weekData.weekLabel} · ${weekData.fileName}`
+          : "샘플 데이터 표시 중 · 엑셀 업로드 후 최신 업로드 데이터가 우선 적용됩니다."}
+      </p>
+      <p className="mt-1 font-semibold opacity-90">
+        {isUploaded
+          ? "현재 브라우저 세션에서만 유지되며 새로고침 후에는 다시 업로드가 필요합니다."
+          : "업로드 데이터는 저장소에 남기지 않으므로 새로고침 후에는 다시 업로드가 필요합니다."}
+      </p>
     </div>
   );
 }
@@ -385,7 +392,7 @@ function AdminUpload({
     setSelectedFileName(file.name);
     const validation = validateUploadFileName(file.name);
     if (!validation.ok) {
-      setParseMessage(validation.message);
+      setParseMessage(`${validation.message} 기존 적용 데이터는 유지됩니다.`);
       return;
     }
 
@@ -398,7 +405,7 @@ function AdminUpload({
 
       const sheet = workbook.Sheets[ORDER_DETAIL_SHEET_NAME];
       if (!sheet) {
-        setParseMessage(`기본 시트 "${ORDER_DETAIL_SHEET_NAME}"를 찾을 수 없습니다.`);
+        setParseMessage(`기본 시트 "${ORDER_DETAIL_SHEET_NAME}"를 찾을 수 없습니다. 기존 적용 데이터는 유지됩니다.`);
         return;
       }
 
@@ -1004,6 +1011,7 @@ export function RiderCoachingApp() {
   const [user, setUser] = useState<UserSession | null>(null);
   const [adminScreen, setAdminScreen] = useState<AdminScreen>("dashboard");
   const [riderScreen, setRiderScreen] = useState<RiderScreen>("home");
+  // 원천 엑셀에는 민감할 수 있는 운행/정산 정보가 있어 브라우저 저장소에 남기지 않는다.
   const [latestUploadedWeekData, setLatestUploadedWeekData] = useState<LatestUploadedWeekData>(() => buildSampleWeekData());
 
   const activeScreen = user?.role === "admin" ? adminScreen : riderScreen;
@@ -1014,7 +1022,7 @@ export function RiderCoachingApp() {
   }
 
   function handleUploadSuccess(result: OrderDetailParseResult) {
-    setLatestUploadedWeekData(buildLatestUploadedWeekData(result));
+    setLatestUploadedWeekData((current) => applyParsedUploadResult(current, result));
   }
 
   if (!user) return <LoginScreen onLogin={setUser} />;
