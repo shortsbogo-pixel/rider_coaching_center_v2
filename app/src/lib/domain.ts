@@ -55,7 +55,7 @@ export interface OrderRecord {
   durationMin: number;
   timeSegment: SegmentKey;
   deliveryType: DeliveryType;
-  status: "완료" | "진행중" | "취소";
+  status: "완료" | "취소";
   settlementAmount: number;
 }
 
@@ -253,12 +253,12 @@ export const orders: OrderRecord[] = [
     pickupArea: "대전 동구 가양동",
     dropoffArea: "대전 동구 삼성동",
     acceptedAt: "05/26 12:16",
-    completedAt: "진행중",
-    durationMin: 0,
+    completedAt: "05/26 12:39",
+    durationMin: 23,
     timeSegment: "Lunch_Peak",
     deliveryType: "멀티배달1",
-    status: "진행중",
-    settlementAmount: 0,
+    status: "완료",
+    settlementAmount: 5400,
   },
   {
     id: "ORD-20411",

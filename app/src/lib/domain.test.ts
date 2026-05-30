@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   adminTabs,
+  getLatestWeekOrdersForUser,
   getOrdersForUser,
   getRiderMetricsForUser,
   login,
@@ -21,6 +22,14 @@ describe("mock auth and role scope", () => {
     expect(rider?.riderId).toBe("r-001");
     expect(getOrdersForUser(rider!).every((order) => order.riderId === "r-001")).toBe(true);
     expect(getRiderMetricsForUser(rider!).map((metric) => metric.riderId)).toEqual(["r-001"]);
+  });
+
+  it("returns rider order history for the latest uploaded week only", () => {
+    const rider = login("rider1", "rider1234");
+    const weeklyOrderHistory = getLatestWeekOrdersForUser(rider!);
+
+    expect(weeklyOrderHistory.every((order) => order.riderId === "r-001")).toBe(true);
+    expect(new Set(weeklyOrderHistory.map((order) => order.weekCode))).toEqual(new Set(["2026_05-4"]));
   });
 
   it("keeps bottom tab IA fixed for admin and rider roles", () => {

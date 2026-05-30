@@ -1,11 +1,13 @@
 "use client";
 
 import {
+  AlertTriangle,
   BarChart3,
   CheckCircle2,
   ChevronRight,
   ClipboardCheck,
   Eye,
+  FileSpreadsheet,
   FileUp,
   Home,
   ListChecks,
@@ -16,8 +18,10 @@ import {
   RotateCcw,
   Settings,
   ShieldCheck,
+  Table2,
   ToggleLeft,
   ToggleRight,
+  UploadCloud,
   User,
   type LucideIcon,
 } from "lucide-react";
@@ -46,6 +50,12 @@ import {
   type SegmentKey,
   type UserSession,
 } from "@/lib/domain";
+import {
+  ORDER_DETAIL_SHEET_NAME,
+  parseOrderDetailRows,
+  type OrderDetailParseResult,
+  type UploadIssueType,
+} from "@/lib/excel-upload";
 
 const adminIcons: Record<AdminScreen, LucideIcon> = {
   dashboard: Home,
@@ -65,6 +75,14 @@ const riderIcons: Record<RiderScreen, LucideIcon> = {
 
 const segments: SegmentKey[] = ["Breakfast", "Lunch_Peak", "Post_Lunch", "Dinner_Peak", "Post_Dinner"];
 const deliveryTypes: DeliveryType[] = ["단건", "멀티배달1", "멀티배달2", "멀티배달3", "확인필요"];
+const uploadIssueLabels: Record<UploadIssueType, string> = {
+  delivery_type_missing: "배달타입 누락",
+  delivery_type_unknown: "배달타입 확인",
+  peak_time_missing: "피크타임 누락",
+  rider_name_missing: "이름 누락",
+  order_number_missing: "주문번호 누락",
+  time_value_missing: "시간값 누락",
+};
 
 function ScreenHeader({
   eyebrow,
@@ -318,33 +336,193 @@ function AdminDashboard() {
 }
 
 function AdminUpload() {
-  const [fileName, setFileName] = useState("동구바로_대전_동구중앙_2026_05-4.xlsx");
-  const result = validateUploadFileName(fileName);
+  const [selectedFileName, setSelectedFileName] = useState("");
+  const [sheetNames, setSheetNames] = useState<string[]>([]);
+  const [parseResult, setParseResult] = useState<OrderDetailParseResult | null>(null);
+  const [parseMessage, setParseMessage] = useState("");
+  const [isParsing, setIsParsing] = useState(false);
+  const fileNameResult = selectedFileName ? validateUploadFileName(selectedFileName) : null;
+  const hasRequiredSheet = sheetNames.includes(ORDER_DETAIL_SHEET_NAME);
+  const canShowSummary = parseResult?.status === "ready";
+
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    setParseResult(null);
+    setParseMessage("");
+    setSheetNames([]);
+
+    if (!file) {
+      setSelectedFileName("");
+      return;
+    }
+
+    setSelectedFileName(file.name);
+    const validation = validateUploadFileName(file.name);
+    if (!validation.ok) {
+      setParseMessage(validation.message);
+      return;
+    }
+
+    setIsParsing(true);
+    try {
+      const XLSX = await import("xlsx");
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
+      setSheetNames(workbook.SheetNames);
+
+      const sheet = workbook.Sheets[ORDER_DETAIL_SHEET_NAME];
+      if (!sheet) {
+        setParseMessage(`기본 시트 "${ORDER_DETAIL_SHEET_NAME}"를 찾을 수 없습니다.`);
+        return;
+      }
+
+      const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+        header: 1,
+        defval: "",
+        blankrows: true,
+        raw: true,
+      }) as unknown[][];
+      const result = parseOrderDetailRows({ fileName: file.name, rows });
+      setParseResult(result);
+      setParseMessage(result.errorMessage ?? (result.status === "ready" ? "브라우저에서 엑셀 파싱을 완료했습니다." : "파싱 결과를 확인해 주세요."));
+    } catch (error) {
+      setParseMessage(error instanceof Error ? error.message : "엑셀 파일을 읽는 중 오류가 발생했습니다.");
+    } finally {
+      setIsParsing(false);
+    }
+  }
 
   return (
     <>
-      <ScreenHeader eyebrow="Upload" title="엑셀 업로드" description="아직 실제 저장은 하지 않고, 파일명과 시트 구조를 mock 검수합니다." />
+      <ScreenHeader
+        eyebrow="Upload"
+        title="엑셀 업로드"
+        description="DB 저장 없이 브라우저에서 선택한 원천 엑셀을 파싱하고 저장 전 검수 미리보기를 확인합니다."
+      />
       <Panel>
-        <label className="block">
-          <span className="text-sm font-bold text-slate-700">선택 파일명</span>
-          <input
-            className="mt-2 h-12 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-blue-500"
-            value={fileName}
-            onChange={(event) => setFileName(event.target.value)}
-          />
+        <label className="block rounded-lg border border-dashed border-blue-300 bg-blue-50 p-4">
+          <span className="flex items-center gap-2 text-sm font-black text-blue-900">
+            <UploadCloud size={18} />
+            원천 엑셀 파일 선택
+          </span>
+          <input className="mt-3 block w-full text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:text-sm file:font-bold file:text-white" type="file" accept=".xlsx" onChange={handleFileChange} />
+          <span className="mt-3 block text-xs font-semibold leading-5 text-blue-900">동구바로_대전_동구중앙_YYYY_MM-W.xlsx 형식만 파싱합니다.</span>
         </label>
-        <div className={`mt-4 rounded-md border p-3 text-sm font-bold ${result.ok ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-700"}`}>
-          {result.message}
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <button className="h-11 rounded-md border border-slate-300 bg-white font-bold text-slate-700" onClick={() => setFileName("동구바로 2026년5월4주차 정산 최종.xlsx")}>
-            제외 파일 테스트
-          </button>
-          <button className="h-11 rounded-md bg-blue-600 font-bold text-white" onClick={() => setFileName("동구바로_대전_동구중앙_2026_05-4.xlsx")}>
-            원천 파일 테스트
-          </button>
+
+        <div className="mt-4 grid gap-3">
+          <div className={`rounded-md border p-3 text-sm font-bold ${fileNameResult?.ok ? "border-emerald-200 bg-emerald-50 text-emerald-800" : selectedFileName ? "border-rose-200 bg-rose-50 text-rose-700" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
+            <div className="flex items-start gap-2">
+              {fileNameResult?.ok ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
+              <div>
+                <p>파일명 검수</p>
+                <p className="mt-1 text-xs font-semibold">{selectedFileName || "파일을 선택해 주세요."}</p>
+                <p className="mt-1 text-xs font-semibold">{fileNameResult?.message ?? "정산/최종 파일은 제외됩니다."}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className={`rounded-md border p-3 text-sm font-bold ${hasRequiredSheet ? "border-emerald-200 bg-emerald-50 text-emerald-800" : sheetNames.length ? "border-rose-200 bg-rose-50 text-rose-700" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
+            <div className="flex items-start gap-2">
+              <FileSpreadsheet size={18} />
+              <div>
+                <p>기본 시트 확인</p>
+                <p className="mt-1 text-xs font-semibold">{sheetNames.length ? (hasRequiredSheet ? `"${ORDER_DETAIL_SHEET_NAME}" 시트를 확인했습니다.` : `"${ORDER_DETAIL_SHEET_NAME}" 시트가 없습니다.`) : "파일 선택 후 시트 목록을 확인합니다."}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className={`rounded-md border p-3 text-sm font-bold ${canShowSummary ? "border-emerald-200 bg-emerald-50 text-emerald-800" : parseMessage ? "border-amber-200 bg-amber-50 text-amber-800" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
+            <div className="flex items-start gap-2">
+              <Table2 size={18} />
+              <div>
+                <p>파싱 상태</p>
+                <p className="mt-1 text-xs font-semibold">{isParsing ? "엑셀을 읽고 있습니다." : parseMessage || "아직 파싱 결과가 없습니다."}</p>
+              </div>
+            </div>
+          </div>
         </div>
       </Panel>
+
+      {parseResult ? (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <StatTile label="기준 주차" value={parseResult.weekLabel ?? "-"} caption={parseResult.weekCode ?? "week_code 없음"} tone="blue" />
+            <StatTile label="전체 행 수" value={`${formatNumber(parseResult.totalRows)}행`} caption="빈 행 제외" />
+            <StatTile label="유효 오더" value={`${formatNumber(parseResult.validOrderCount)}건`} caption="필수값 통과" tone="good" />
+            <StatTile label="검수 이슈" value={`${formatNumber(parseResult.issueCount)}건`} caption="저장 전 확인" tone={parseResult.issueCount ? "warn" : "good"} />
+          </div>
+
+          <Panel>
+            <h2 className="text-lg font-black">업로드 결과 요약</h2>
+            <div className="mt-3 grid gap-2 text-sm">
+              <div className="flex justify-between gap-3"><span className="text-slate-500">내부 week_code</span><strong>{parseResult.weekCode}</strong></div>
+              <div className="flex justify-between gap-3"><span className="text-slate-500">화면 week_label</span><strong>{parseResult.weekLabel}</strong></div>
+              <div className="flex justify-between gap-3"><span className="text-slate-500">헤더 기준</span><strong>7행 · B:Y</strong></div>
+              <div className="flex justify-between gap-3"><span className="text-slate-500">저장 상태</span><strong className="text-blue-700">미저장 미리보기</strong></div>
+            </div>
+          </Panel>
+
+          <Panel>
+            <h2 className="text-lg font-black">검수 이슈</h2>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {(Object.entries(uploadIssueLabels) as [UploadIssueType, string][]).map(([type, label]) => (
+                <div className="rounded-md border border-slate-200 p-3" key={type}>
+                  <span className="text-xs font-bold text-slate-500">{label}</span>
+                  <strong className={`mt-1 block text-xl font-black ${parseResult.issueSummary[type] ? "text-amber-700" : "text-emerald-700"}`}>{formatNumber(parseResult.issueSummary[type])}</strong>
+                </div>
+              ))}
+            </div>
+            {parseResult.issues.length ? (
+              <div className="mt-4 max-h-52 space-y-2 overflow-y-auto pr-1">
+                {parseResult.issues.slice(0, 20).map((issue, index) => (
+                  <div className="rounded-md bg-amber-50 p-3 text-xs leading-5 text-amber-900" key={`${issue.rowNumber}-${issue.type}-${index}`}>
+                    <strong>{issue.rowNumber}행 · {uploadIssueLabels[issue.type]}</strong>
+                    <p>{issue.message}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm font-bold text-emerald-700">검수 이슈가 없습니다.</p>
+            )}
+          </Panel>
+
+          <Panel>
+            <h2 className="text-lg font-black">라이더별 집계 미리보기</h2>
+            <div className="mt-3 space-y-3">
+              {parseResult.riderSummaries.slice(0, 8).map((summary) => (
+                <div className="rounded-lg border border-slate-200 p-3" key={summary.riderName}>
+                  <div className="flex items-center justify-between gap-3">
+                    <strong className="text-sm text-slate-950">{summary.riderName}</strong>
+                    <span className="rounded-md bg-blue-50 px-2 py-1 text-xs font-black text-blue-700">{formatNumber(summary.completedCount)}건</span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-bold text-slate-600">
+                    <span>출근횟수 {summary.activeDays}일</span>
+                    <span>멀티비율 {formatRate(summary.multiRate)}</span>
+                    <span>Post_Lunch {formatRate(summary.postLunchRate)}</span>
+                    <span>Post_Dinner {formatRate(summary.postDinnerRate)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Panel>
+
+          <Panel>
+            <h2 className="text-lg font-black">오더 파싱 미리보기</h2>
+            <div className="mt-3 space-y-2">
+              {parseResult.parsedOrders.slice(0, 5).map((order) => (
+                <div className="rounded-md border border-slate-200 p-3 text-xs" key={`${order.rowNumber}-${order.orderNumber}`}>
+                  <div className="flex justify-between gap-3">
+                    <strong className="text-slate-950">{order.riderName}</strong>
+                    <span className="font-mono text-slate-500">{order.orderNumber}</span>
+                  </div>
+                  <p className="mt-1 text-slate-500">{order.storeName} · {order.peakTime} · {order.deliveryType}</p>
+                </div>
+              ))}
+            </div>
+          </Panel>
+        </>
+      ) : null}
+
       <Panel>
         <h2 className="text-lg font-black">필수 매핑 필드</h2>
         <div className="mt-3 grid grid-cols-2 gap-2">
@@ -518,7 +696,7 @@ function OrderList({ list }: { list: OrderRecord[] }) {
             <span>{order.id}</span>
             <span>{segmentLabels[order.timeSegment]}</span>
             <span>{order.deliveryType}</span>
-            <span>{order.durationMin ? `${order.durationMin}분` : "진행중"}</span>
+            <span>{order.durationMin ? `${order.durationMin}분` : "시간 미기재"}</span>
           </div>
         </div>
       ))}
@@ -526,61 +704,58 @@ function OrderList({ list }: { list: OrderRecord[] }) {
   );
 }
 
-function RiderHome({ metric, userOrders }: { metric: RiderMetric; userOrders: OrderRecord[] }) {
-  const activeOrder = userOrders.find((order) => order.status === "진행중");
+function RiderHome({ metric, latestWeekOrders }: { metric: RiderMetric; latestWeekOrders: OrderRecord[] }) {
   return (
     <>
-      <ScreenHeader eyebrow="Rider Home" title={`${metric.riderName}님, 이번 주 운행 현황`} description={`${metric.weekLabel} · 본인 데이터만 표시합니다.`} />
+      <ScreenHeader eyebrow="Rider Home" title={`${metric.riderName}님, 이번 주 운행 현황`} description={`${metric.weekLabel} · 최신 업로드 주차의 본인 데이터만 표시합니다.`} />
       <div className="grid grid-cols-2 gap-3">
         <StatTile label="완료" value={`${metric.completedCount}건`} caption={`${metric.activeDays}일 활동`} tone="blue" />
         <StatTile label="점수" value={`${metric.dispatchScore}점`} caption={metric.grade} tone="good" />
         <StatTile label="예상 정산" value={formatWon(metric.expectedSettlement)} caption="mock 합계" />
         <StatTile label="주간 거리" value={`${metric.distanceKm}km`} caption="배달거리 합계" />
       </div>
-      {activeOrder ? (
-        <Panel className="border-blue-200 bg-blue-50">
-          <h2 className="text-lg font-black text-blue-950">현재 진행중 오더</h2>
-          <p className="mt-2 text-sm leading-6 text-blue-900">{activeOrder.storeName} · {activeOrder.pickupArea} → {activeOrder.dropoffArea}</p>
-        </Panel>
-      ) : null}
       <Panel>
-        <h2 className="text-lg font-black">최근 내 오더</h2>
+        <h2 className="text-lg font-black">최신 업로드 주차 운행 요약</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-500">관리자가 업로드한 엑셀 데이터를 기준으로 집계한 과거 운행 이력입니다.</p>
+      </Panel>
+      <Panel>
+        <h2 className="text-lg font-black">최근 운행 내역</h2>
         <div className="mt-3">
-          <OrderList list={userOrders.slice(0, 3)} />
+          <OrderList list={latestWeekOrders.slice(0, 3)} />
         </div>
       </Panel>
     </>
   );
 }
 
-function RiderOrders({ userOrders }: { userOrders: OrderRecord[] }) {
+function RiderOrders({ latestWeekOrders }: { latestWeekOrders: OrderRecord[] }) {
   return (
     <>
-      <ScreenHeader eyebrow="My Orders" title="내오더" description="rider_id 기준 본인 오더만 표시합니다. 타 라이더 선택 UI는 없습니다." />
+      <ScreenHeader eyebrow="My Orders" title="내오더" description="최신 업로드 주차의 운행 내역입니다. 관리자가 업로드한 엑셀 데이터를 기준으로 표시됩니다." />
       <div className="flex gap-2 overflow-x-auto pb-1">
-        {["전체", "Post_Dinner", "멀티", "오늘"].map((item) => (
+        {["전체", "Post_Dinner", "멀티", "업로드 주차"].map((item) => (
           <span className="shrink-0 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600" key={item}>{item}</span>
         ))}
       </div>
-      <OrderList list={userOrders} />
+      <OrderList list={latestWeekOrders} />
     </>
   );
 }
 
-function RiderMap({ userOrders }: { userOrders: OrderRecord[] }) {
+function RiderMap({ latestWeekOrders }: { latestWeekOrders: OrderRecord[] }) {
   return (
     <>
-      <ScreenHeader eyebrow="My Map" title="내지도" description="실제 지도 API 없이 본인 픽업/도착 흐름을 mock 경로로 표시합니다." />
+      <ScreenHeader eyebrow="My Map" title="내지도" description="최신 업로드 주차의 픽업/배달 지역을 기준으로 표시하는 지도형 미리보기입니다." />
       <section className="relative h-72 overflow-hidden rounded-lg border border-slate-200 bg-[#e8f1ed]">
         <div className="absolute inset-x-8 top-12 h-44 rounded-[50%] border-4 border-dashed border-teal-500" />
         <div className="absolute left-10 top-16 rounded-md bg-white px-3 py-2 text-xs font-black text-teal-800 shadow">픽업</div>
         <div className="absolute right-8 top-32 rounded-md bg-white px-3 py-2 text-xs font-black text-blue-800 shadow">도착</div>
         <div className="absolute bottom-4 left-4 right-4 rounded-lg bg-white/95 p-3 shadow">
-          <strong className="text-sm text-slate-950">내 오더 지도 · {userOrders.length}건</strong>
-          <p className="mt-1 text-xs text-slate-500">좌표 캐시는 MVP 이후 확장 예정입니다.</p>
+          <strong className="text-sm text-slate-950">업로드 주차 지역 · {latestWeekOrders.length}건</strong>
+          <p className="mt-1 text-xs text-slate-500">주소 텍스트와 지역 요약 기반이며 좌표 캐시는 MVP 이후 확장 예정입니다.</p>
         </div>
       </section>
-      <OrderList list={userOrders.slice(0, 2)} />
+      <OrderList list={latestWeekOrders.slice(0, 2)} />
     </>
   );
 }
@@ -692,7 +867,7 @@ function AdminScreens({ screen }: { screen: AdminScreen }) {
 
 function RiderScreens({ screen, user }: { screen: RiderScreen; user: UserSession }) {
   const metrics = getRiderMetricsForUser(user)[0];
-  const userOrders = getOrdersForUser(user);
+  const latestWeekOrders = getOrdersForUser(user);
 
   if (!metrics) {
     return (
@@ -703,11 +878,11 @@ function RiderScreens({ screen, user }: { screen: RiderScreen; user: UserSession
     );
   }
 
-  if (screen === "orders") return <RiderOrders userOrders={userOrders} />;
-  if (screen === "map") return <RiderMap userOrders={userOrders} />;
+  if (screen === "orders") return <RiderOrders latestWeekOrders={latestWeekOrders} />;
+  if (screen === "map") return <RiderMap latestWeekOrders={latestWeekOrders} />;
   if (screen === "coaching") return <RiderCoaching metric={metrics} />;
   if (screen === "my") return <RiderMy user={user} metric={metrics} />;
-  return <RiderHome metric={metrics} userOrders={userOrders} />;
+  return <RiderHome metric={metrics} latestWeekOrders={latestWeekOrders} />;
 }
 
 export function RiderCoachingApp() {
