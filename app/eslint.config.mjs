@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local dependencies, coverage, deployment, and verification artifacts.
+    "node_modules/**",
+    "coverage/**",
+    ".vercel/**",
+    ".verification/**",
   ]),
 ]);
 
