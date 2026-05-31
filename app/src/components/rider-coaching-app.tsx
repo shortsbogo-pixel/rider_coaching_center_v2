@@ -265,15 +265,15 @@ function DataSourceNotice({ weekData }: { weekData: LatestUploadedWeekData }) {
 function SettlementWebCard({ role }: { role: "admin" | "rider" }) {
   const linkState = getSettlementWebLinkState();
   const isAdmin = role === "admin";
-  const title = isAdmin ? "정산 관리 웹" : "정산 확인";
-  const buttonLabel = isAdmin ? "정산 관리 웹 열기" : "정산웹 열기";
+  const title = isAdmin ? "정산 관리 앱" : "정산 확인";
+  const buttonLabel = isAdmin ? "정산 관리 앱 열기" : "정산앱 열기";
   const descriptions = isAdmin
     ? [
-        "정산 확정/지급/상세 원장은 기존 정산 관리 시스템에서 처리합니다.",
-        "코칭센터는 정산 계산이나 정산 엑셀 파싱을 하지 않습니다.",
+        "정산 확정, 지급 상태, 상세 원장은 기존 정산앱에서 처리합니다.",
+        "코칭센터는 정산앱으로 이동하는 링크만 제공합니다.",
       ]
     : [
-        "정산 상세와 지급 상태는 기존 정산 시스템에서 확인합니다.",
+        "정산 상세와 지급 상태는 기존 정산앱에서 확인합니다.",
         "코칭센터는 운행 데이터와 코칭 확인용입니다.",
       ];
 
@@ -300,7 +300,7 @@ function SettlementWebCard({ role }: { role: "admin" | "rider" }) {
         <a
           className={`${actionClass} bg-blue-600 text-white shadow-[0_10px_24px_rgba(37,99,235,0.18)] active:scale-[0.99]`}
           href={linkState.href}
-          rel="noreferrer"
+          rel="noopener noreferrer"
           target="_blank"
         >
           <ExternalLink size={17} />
