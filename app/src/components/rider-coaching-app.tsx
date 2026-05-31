@@ -9,6 +9,7 @@ import {
   Clock,
   Coffee,
   Eye,
+  ExternalLink,
   FileSpreadsheet,
   FileUp,
   Home,
@@ -93,6 +94,7 @@ import {
   type RestStatus,
   type RoutineType,
 } from "@/lib/rider-pace-check";
+import { getSettlementWebLinkState } from "@/lib/settlement-link";
 import {
   applyParsedUploadPreview,
   cancelParsedUploadPreview,
@@ -257,6 +259,68 @@ function DataSourceNotice({ weekData }: { weekData: LatestUploadedWeekData }) {
           : "정상 엑셀을 업로드하고 반영하면 업로드 데이터 기준으로 바뀝니다."}
       </p>
     </div>
+  );
+}
+
+function SettlementWebCard({ role }: { role: "admin" | "rider" }) {
+  const linkState = getSettlementWebLinkState();
+  const isAdmin = role === "admin";
+  const title = isAdmin ? "정산 관리 웹" : "정산 확인";
+  const buttonLabel = isAdmin ? "정산 관리 웹 열기" : "정산웹 열기";
+  const descriptions = isAdmin
+    ? [
+        "정산 확정/지급/상세 원장은 기존 정산 관리 시스템에서 처리합니다.",
+        "코칭센터는 정산 계산이나 정산 엑셀 파싱을 하지 않습니다.",
+      ]
+    : [
+        "정산 상세와 지급 상태는 기존 정산 시스템에서 확인합니다.",
+        "코칭센터는 운행 데이터와 코칭 확인용입니다.",
+      ];
+
+  const actionClass =
+    "mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-md px-3 text-sm font-black transition";
+
+  return (
+    <Panel>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase text-blue-700">Settlement Link</p>
+          <h2 className="mt-1 text-lg font-black text-slate-950">{title}</h2>
+        </div>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+          <ExternalLink size={19} />
+        </span>
+      </div>
+      <div className="mt-3 space-y-1">
+        {descriptions.map((description) => (
+          <p className="text-sm font-semibold leading-5 text-slate-600" key={description}>{description}</p>
+        ))}
+      </div>
+      {linkState.configured && linkState.href ? (
+        <a
+          className={`${actionClass} bg-blue-600 text-white shadow-[0_10px_24px_rgba(37,99,235,0.18)] active:scale-[0.99]`}
+          href={linkState.href}
+          rel="noreferrer"
+          target="_blank"
+        >
+          <ExternalLink size={17} />
+          {buttonLabel}
+        </a>
+      ) : (
+        <button
+          className={`${actionClass} cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400`}
+          disabled
+          type="button"
+        >
+          <ExternalLink size={17} />
+          {buttonLabel}
+        </button>
+      )}
+      <p className={`mt-3 rounded-md px-3 py-2 text-xs font-bold leading-5 ${linkState.configured ? "bg-blue-50 text-blue-800" : "bg-amber-50 text-amber-900"}`}>
+        {linkState.message}
+        {linkState.configured ? " 새 탭 또는 새 창으로 열립니다." : ""}
+      </p>
+    </Panel>
   );
 }
 
@@ -1140,6 +1204,7 @@ function AdminMore({
       <ScreenHeader eyebrow="More" title="더보기" description="자주 쓰지 않는 설정과 계정 관리를 모았습니다." />
       <BetaNoticeCard />
       <BetaChecklistPanel />
+      <SettlementWebCard role="admin" />
       <AdminPaceSettingsPanel
         paceSettings={paceSettings}
         onPaceSettingsChange={onPaceSettingsChange}
@@ -1698,6 +1763,7 @@ function RiderMy({ user, metric }: { user: UserSession; metric: RiderMetric }) {
         </div>
       </Panel>
       <BetaNoticeCard />
+      <SettlementWebCard role="rider" />
       <Panel>
         <h2 className="text-lg font-black">문의 / 공지</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">문의 042-672-0901 · 이번 주 코칭 메시지는 토요일 오전에 업데이트됩니다.</p>
