@@ -230,6 +230,14 @@ export function summarizePickupAreas(
     .slice(0, getTopN(filters.topN));
 }
 
+export function getTopPickupAreasByWeek(
+  orders: PositionRecommendationInput[],
+  weekCode?: string,
+  topN = 5,
+): PickupAreaStat[] {
+  return summarizePickupAreas(orders, { weekCode, topN });
+}
+
 export function recommendPickupAreasByTimeSlot(
   orders: PositionRecommendationInput[],
   filters: PositionRecommendationFilters = {},

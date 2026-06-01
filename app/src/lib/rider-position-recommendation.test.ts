@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getTimeSlotFromDate,
   getWeekdayFromDate,
+  getTopPickupAreasByWeek,
   normalizePickupArea,
   recommendPickupAreasByTimeSlot,
   recommendPickupAreasForRider,
@@ -106,6 +107,28 @@ describe("rider position recommendation", () => {
     const stats = summarizePickupAreas(sampleOrders, { weekCode: "2026_05-4", weekday: "tuesday" });
 
     expect(stats.map((stat) => stat.pickupArea)).toEqual(["홍도동"]);
+  });
+
+  it("returns only the top 5 pickup areas for a selected week", () => {
+    const weekOrders = [
+      ...sampleOrders.filter((order) => order.weekCode === "2026_05-4"),
+      { ...sampleOrders[0], orderNo: "ORD-006", pickupArea: "권역1", riderId: "r-003", pickupName: "Store F", pickupAddress: "대전 동구 권역1" },
+      { ...sampleOrders[0], orderNo: "ORD-007", pickupArea: "권역2", riderId: "r-003", pickupName: "Store G", pickupAddress: "대전 동구 권역2" },
+      { ...sampleOrders[0], orderNo: "ORD-008", pickupArea: "권역3", riderId: "r-003", pickupName: "Store H", pickupAddress: "대전 동구 권역3" },
+      { ...sampleOrders[0], orderNo: "ORD-009", pickupArea: "권역4", riderId: "r-003", pickupName: "Store I", pickupAddress: "대전 동구 권역4" },
+      { ...sampleOrders[0], orderNo: "ORD-010", pickupArea: "권역5", riderId: "r-003", pickupName: "Store J", pickupAddress: "대전 동구 권역5" },
+      { ...sampleOrders[0], orderNo: "ORD-011", pickupArea: "권역6", riderId: "r-003", pickupName: "Store K", pickupAddress: "대전 동구 권역6" },
+    ];
+
+    const topAreas = getTopPickupAreasByWeek(weekOrders, "2026_05-4", 5);
+
+    expect(topAreas).toHaveLength(5);
+    expect(topAreas.map((stat) => stat.pickupArea)).toEqual(["용전동", "가양동", "권역1", "권역2", "권역3"]);
+  });
+
+  it("shows an empty result when there is no matching week code", () => {
+    const topAreas = getTopPickupAreasByWeek(sampleOrders, "2026_05-5", 5);
+    expect(topAreas).toEqual([]);
   });
 
   it("uses peak time first and filters recommendations by time slot", () => {
