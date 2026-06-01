@@ -94,6 +94,7 @@ import {
   type RestStatus,
   type RoutineType,
 } from "@/lib/rider-pace-check";
+import { getRiderMapPositionRecommendations } from "@/lib/rider-map-recommendation";
 import { getSettlementWebLinkState } from "@/lib/settlement-link";
 import {
   applyParsedUploadPreview,
@@ -1658,10 +1659,50 @@ function RiderOrders({ latestWeekOrders }: { latestWeekOrders: OrderRecord[] }) 
   );
 }
 
-function RiderMap({ latestWeekOrders }: { latestWeekOrders: OrderRecord[] }) {
+function RiderMap({ latestWeekOrders, riderId }: { latestWeekOrders: OrderRecord[]; riderId?: string }) {
+  const positionRecommendations = getRiderMapPositionRecommendations(latestWeekOrders, riderId);
+
   return (
     <>
       <ScreenHeader eyebrow="My Map" title="내지도" description="최신 업로드 주차의 픽업/배달 지역을 기준으로 표시하는 지도형 미리보기입니다." />
+      <Panel>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-black text-slate-950">어디서 대기할까?</h2>
+            <p className="mt-1 text-xs font-bold leading-5 text-slate-500">
+              선택 주차 업로드 데이터 기준입니다.
+              <br />
+              실시간 위치가 아닙니다.
+            </p>
+          </div>
+          <span className="shrink-0 rounded-md bg-teal-50 px-2.5 py-1 text-[11px] font-black text-teal-800">TOP 3</span>
+        </div>
+
+        {positionRecommendations.recommendations.length > 0 ? (
+          <div className="mt-4 space-y-3">
+            {positionRecommendations.recommendations.map((recommendation) => (
+              <div className="grid grid-cols-[auto_1fr] gap-3 rounded-md border border-slate-200 bg-slate-50 p-3" key={recommendation.rank}>
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-950 text-sm font-black text-white">
+                  {recommendation.rank}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <strong className="break-words text-sm font-black text-slate-950">{recommendation.pickupArea}</strong>
+                    <span className="shrink-0 text-xs font-black text-teal-700">{formatNumber(recommendation.completedCount)}콜</span>
+                  </div>
+                  <p className="mt-1 text-xs font-bold leading-5 text-slate-500">완료 콜 수 {formatNumber(recommendation.completedCount)}건</p>
+                  <p className="mt-2 text-xs font-bold leading-5 text-slate-600">{recommendation.reason}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-4 rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
+            <p className="text-sm font-black text-slate-700">추천할 픽업권역 데이터가 아직 부족합니다.</p>
+            <p className="mt-1 text-xs font-bold leading-5 text-slate-500">선택 주차에 완료된 본인 오더가 쌓이면 TOP 3 권역을 표시합니다.</p>
+          </div>
+        )}
+      </Panel>
       <section className="relative h-72 overflow-hidden rounded-lg border border-slate-200 bg-[#e8f1ed]">
         <div className="absolute inset-x-8 top-12 h-44 rounded-[50%] border-4 border-dashed border-teal-500" />
         <div className="absolute left-10 top-16 rounded-md bg-white px-3 py-2 text-xs font-black text-teal-800 shadow">픽업</div>
@@ -1869,7 +1910,7 @@ function RiderScreens({
 
   let content: React.ReactNode;
   if (screen === "orders") content = <RiderOrders latestWeekOrders={latestWeekOrders} />;
-  else if (screen === "map") content = <RiderMap latestWeekOrders={latestWeekOrders} />;
+  else if (screen === "map") content = <RiderMap latestWeekOrders={latestWeekOrders} riderId={user.riderId} />;
   else if (screen === "coaching") content = <RiderCoaching metric={metrics} message={message} />;
   else if (screen === "my") content = <RiderMy user={user} metric={metrics} />;
   else content = <RiderHome metric={metrics} latestWeekOrders={latestWeekOrders} paceSettings={paceSettings} />;
