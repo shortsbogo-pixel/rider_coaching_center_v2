@@ -1,352 +1,328 @@
-# DB / Supabase Storage Design
+# DB / Supabase 도입 검토 문서
 
 ## 목적
 
-라이더 코칭센터 Ver.2가 현재 브라우저 세션 상태에서 동작하는 구조를 유지하되, 향후 베타/정식 운영에서 Supabase/PostgreSQL 저장 구조로 전환할 때 필요한 데이터 모델과 운영 원칙을 정리한다.
+라이더 코칭센터 Ver.2에 실제 DB 또는 Supabase를 붙이기 전에, 저장 대상과 비저장 대상, 권한, RLS, 운영 리스크를 판단하기 위한 체크리스트를 정리한다.
 
-이번 단계에서는 실제 DB 연결, Supabase 설치, API 연결, 인증 구현을 하지 않는다. 이 문서는 설계 기준이며, 코드는 별도 저장 모델 타입까지만 추가한다.
+이번 문서는 설계/검토용이다. 실제 DB 연결, Supabase 패키지 설치, API 연결, 인증 구현, 마이그레이션 실행은 하지 않는다.
 
-## 현재 범위
+현재 앱은 쿠팡플러스 전용 모바일 웹앱이며, 정산앱과는 데이터 연동 없이 외부 링크로만 연결한다.
 
-현재 앱은 쿠팡플러스 전용이다. 배민플러스, 바로고, 꼬르륵 등 타 플랫폼 확장은 이번 설계 범위에서 제외한다.
+## 1. DB 도입이 필요한 시점
 
-현재 데이터 흐름:
+아래 조건 중 2개 이상이 실제 운영에서 발생하면 DB 도입을 우선 검토한다.
 
-1. 관리자가 브라우저에서 원천 엑셀 파일을 선택한다.
-2. 브라우저에서 파일명, 시트, 행, 필수값을 검수한다.
-3. 정규화된 오더와 라이더별 집계를 미리보기로 보여준다.
-4. 관리자가 `이번 주차 데이터로 반영`을 누르면 앱 내부 상태에 최신 주차 데이터가 반영된다.
-5. 새로고침, 재배포, 세션 변경 후에는 다시 업로드가 필요할 수 있다.
+| 판단 항목 | DB 필요 신호 |
+| --- | --- |
+| 데이터 지속성 | 새로고침, 로그아웃, 기기 변경 후에도 최신 반영 주차 데이터가 유지되어야 한다. |
+| 다중 사용자 | 관리자와 여러 라이더가 같은 주차 데이터를 동시에 확인해야 한다. |
+| 운영 이력 | 업로드 미리보기, 반영, 취소, 파일 차단, 설정 변경 로그를 장기 보관해야 한다. |
+| 권한 통제 | 라이더별 본인 데이터만 조회하도록 서버/DB 레벨에서 강제해야 한다. |
+| 계정 운영 | 공용 테스트 계정 대신 관리자/라이더 개인 계정이 필요하다. |
+| 베타 확대 | 소규모 내부 테스트를 넘어 실제 라이더 다수가 접속한다. |
+| 장애 대응 | 잘못된 업로드 후 이전 반영 데이터 복구나 감사 추적이 필요하다. |
 
-DB 도입 후 바뀌는 점:
+권장 전환 기준:
 
-- 최신 반영 주차 데이터가 DB에서 로드된다.
-- 업로드 이력과 운영 로그가 세션이 아닌 서버 저장 기준으로 남는다.
-- 라이더는 로그인 후 본인 `rider_id` 데이터만 조회한다.
-- 새로고침 후에도 마지막 반영 주차를 다시 불러올 수 있다.
-- 단, 원천 엑셀 파일 자체는 계속 저장하지 않는다.
+- 1차 베타: in-memory/session 상태로 흐름 검증 가능
+- 반복 베타: server JSON store 또는 Supabase 개발 프로젝트 검토
+- 운영 공개: Supabase/PostgreSQL + Auth + RLS 권장
 
-## 추천 DB 후보
+## 2. 아직 DB 없이 가능한 범위
 
-우선 후보는 Supabase/PostgreSQL이다.
+현재 구조로도 아래 검증은 가능하다.
 
-이유:
+- 관리자 로그인/라이더 로그인/pending 권한 분기 확인
+- 브라우저 파일 선택 방식의 엑셀 파싱
+- 업로드 파일명, 시트, 필수값 검수
+- 미리보기와 확정 반영 흐름 검증
+- 관리자 대시보드/검수/코칭 화면 확인
+- 라이더 본인 화면에서 최신 업로드 주차 기준 UI 확인
+- 오늘의 페이스 체크 수기 입력 UX 확인
+- 운영 로그 UI 흐름 확인
+- 정산앱 외부 링크 이동 확인
 
-- PostgreSQL 테이블과 제약 조건으로 주차별 데이터 정합성을 관리하기 좋다.
-- Supabase Auth와 RLS를 붙이면 관리자/라이더 권한 분리에 적합하다.
-- 주차별 업로드, 코칭 메시지, 운영 로그처럼 관계형 데이터가 많다.
-- 추후 백업, 감사 로그, 관리자 권한 관리, 인덱스 최적화를 적용하기 쉽다.
+DB 없이 어려운 범위:
 
-주의:
+- 새로고침 후 데이터 유지
+- 다른 기기/다른 사용자 간 동일 데이터 공유
+- 실제 계정 발급/비밀번호 관리
+- 관리자 권한 변경 이력 추적
+- 운영 로그 장기 보관
+- 라이더별 접근 권한을 서버/DB 레벨에서 강제
+- 백업/복구/롤백
 
-- 개인정보와 운행 데이터가 저장되므로 RLS, 접근 로그, 백업 정책을 먼저 확정해야 한다.
-- 원천 엑셀 파일 업로드 저장소를 만들면 안 된다.
-- 서버 측 파싱으로 이동할 경우 `xlsx` 취약점과 파일 크기 제한, 타임아웃, 샌드박스가 별도 검토 대상이다.
+## 3. 저장해야 할 데이터
 
-## 단계별 저장 방식
+저장 대상은 원천 파일이 아니라 파싱, 검수, 정규화, 집계가 끝난 데이터다.
 
-| 단계 | 저장 방식 | 목적 | 전환 기준 |
-| --- | --- | --- | --- |
-| MVP/개발 | in-memory/session | 화면 흐름과 엑셀 파싱 검증 | 현재 단계 |
-| 소규모 베타 | 제한된 server JSON store 또는 Supabase 개발 프로젝트 | 새로고침 후 데이터 유지, 운영자 테스트 | 실제 외부 베타 사용자가 반복 접속할 때 |
-| 정식 운영 | Supabase/PostgreSQL + Auth + RLS | 권한 분리, 데이터 보존, 감사 로그, 백업 | 라이더 외부 접속과 운영 데이터 보존이 필요할 때 |
-
-## 저장해야 할 데이터
-
-- 사용자 계정: 관리자, 라이더, 승인대기, `rider_id`, 이름, 승인 상태
-- 업로드 주차 정보: `week_code`, `week_label`, `source_file_name`, `uploaded_at`, `uploaded_by`, `applied_at`
-- 정규화된 오더 데이터: `week_code`, `rider_id`, `rider_name`, `order_no`, `delivery_type`, `peak_time`, `pickup_area`, `dropoff_area`, `completed_at`, `distance`, `settlement_amount`
-- 라이더별 주간 집계: 완료건수, 출근횟수, 멀티비율, `Post_Lunch`/`Post_Dinner` 참여율, 배차 친화 점수
-- 코칭 메시지: 자동 메시지, 관리자 수정 메시지, 노출 ON/OFF, 내부 메모
-- 오늘의 페이스 체크 수기 입력: 오늘 완료 콜 수, 컨디션, 식사 여부, 수면 시간, 휴식 여부, 이번 주 목표
-- 운영 로그: 업로드 미리보기, 반영, 취소, 파일 차단, 시트 누락, 파싱 실패, 설정 변경
-
-## 저장하지 않을 데이터
-
-- 원본 엑셀 파일 바이너리
-- 브라우저 `File` 객체
-- 업로드 ArrayBuffer
-- 정산 최종 파일
-- 파싱 전 원본 행 전체
-- GPS 현재 위치
-- 실시간 콜 진행 상태
-- 문자 발송 기록
-- 실제 음악 재생 기록
-- 불필요한 개인정보
-
-## 테이블 초안
-
-### `users`
-
-사용자 계정과 권한 상태를 저장한다.
-
-| 컬럼 | 타입 후보 | 설명 |
+| 데이터 | 저장 목적 | 주요 필드 |
 | --- | --- | --- |
-| `id` | uuid | 내부 사용자 ID |
-| `login_id` | text unique | 로그인 식별자 또는 Auth 매핑 키 |
-| `role` | enum | `admin`, `rider` |
-| `account_status` | enum | `active`, `pending`, `inactive` |
-| `rider_id` | text nullable unique | 라이더 계정일 때 매핑 ID |
-| `display_name` | text | 화면 표시 이름 |
-| `created_at` | timestamptz | 생성 시각 |
-| `updated_at` | timestamptz | 수정 시각 |
+| 사용자 계정 | 로그인, 승인 상태, 권한 분기 | `auth_user_id`, `role`, `account_status`, `display_name` |
+| rider_id | 라이더 데이터 매핑 기준 | `rider_id`, `auth_user_id`, `display_name`, `active/inactive` |
+| 업로드 주차 정보 | 최신 반영 주차와 업로드 이력 관리 | `week_code`, `week_label`, `source_file_name`, `uploaded_at`, `uploaded_by`, `applied_at`, `status` |
+| 정규화된 오더 데이터 | 라이더별 내오더/내지도/내현황 기준 | `week_code`, `rider_id`, `rider_name`, `order_no`, `delivery_type`, `peak_time`, `pickup_area`, `dropoff_area`, `completed_at`, `distance`, `settlement_amount` |
+| 라이더별 주간 집계 | 대시보드, 코칭, 라이더 현황 표시 | `completed_count`, `active_days`, `multi_rate`, `post_lunch_rate`, `post_dinner_rate`, `dispatch_score` |
+| 코칭 메시지 | 관리자 코칭 관리와 라이더 노출 | `auto_message`, `custom_message`, `visible_to_rider`, `internal_memo`, `updated_by`, `updated_at` |
+| 오늘의 페이스 체크 입력 | 라이더 수기 입력 기반 코칭 | `today_completed_calls`, `today_start_time`, `condition`, `meal_status`, `sleep_hours`, `rest_status`, `weekly_goal_calls` |
+| 페이스 체크 설정 | 관리자 기준값 관리 | `default_weekly_goal_calls`, `sleep_warning_hours`, 안전 문구, 루틴 문구, 음악 모드 안내 문구 |
+| 운영 로그 | 감사, 장애 대응, 베타 피드백 추적 | `type`, `week_code`, `source_file_name`, `actor_user_id`, `summary`, `created_at` |
 
-### `upload_weeks`
+`settlement_amount`는 원천 엑셀의 정규화 필드로만 보관할 수 있다. 코칭센터에서 정산 금액을 계산하거나 지급 상태를 판단하지 않는다.
 
-관리자가 반영한 주차 단위 데이터 묶음이다.
+## 4. 저장하지 말아야 할 데이터
 
-| 컬럼 | 타입 후보 | 설명 |
-| --- | --- | --- |
-| `id` | uuid | 업로드 주차 ID |
-| `week_code` | text unique | 예: `2026_05-4` |
-| `week_label` | text | 예: `5월4주차` |
-| `source_file_name` | text | 파일명 문자열만 저장 |
-| `uploaded_at` | timestamptz | 미리보기 생성 시각 |
-| `uploaded_by` | uuid FK users.id | 업로드 관리자 |
-| `applied_at` | timestamptz nullable | 이번 주차 데이터로 반영한 시각 |
-| `status` | enum | `preview`, `applied`, `cancelled`, `rejected`, `failed` |
-| `total_rows` | integer | 총행수 |
-| `valid_order_count` | integer | 유효 오더 후보 |
-| `issue_rows` | integer | 확인 필요 행 |
-| `issue_count` | integer | 이슈 건수, 중복 포함 |
+아래 데이터는 DB, Storage, 운영 로그, 클라이언트 캐시에 저장하지 않는 것을 원칙으로 한다.
 
-### `normalized_orders`
+| 비저장 대상 | 이유 |
+| --- | --- |
+| 원본 엑셀 파일 바이너리 | 개인정보/정산 원천 데이터 노출 위험, 보관 책임 증가 |
+| 브라우저 `File` 객체 | 브라우저 세션 객체이며 저장 대상이 아님 |
+| ArrayBuffer 또는 파싱 전 원천 payload | 원천 파일 저장과 동일한 위험 |
+| 정산 최종 파일 | 코칭센터 업로드 대상 제외, 기존 정산앱 영역 |
+| GPS 현재 위치 | Ver.2 MVP 범위 제외, 민감 위치정보 |
+| 실시간 콜 상태 | 실시간 관제 앱이 아니므로 저장/연동하지 않음 |
+| 문자 발송 기록 | 문자 기능이 없으며 운영 범위 제외 |
+| 실제 음악 재생 기록 | 음악 재생 기능이 없으며 운영 범위 제외 |
+| 불필요한 개인정보 | 전화번호, 주민번호, 상세 주소, 계좌번호 등 |
 
-정규화된 오더 이력이다. 원천 행 전체를 저장하지 않는다.
+운영 로그에도 원천 엑셀 행 전체, File 객체, 불필요한 개인정보를 넣지 않는다. 로그에는 파일명, 주차, 요약 수치, 이슈 유형만 남긴다.
 
-| 컬럼 | 타입 후보 | 설명 |
-| --- | --- | --- |
-| `id` | uuid | 오더 레코드 ID |
-| `week_id` | uuid FK upload_weeks.id | 주차 FK |
-| `week_code` | text | 조회 최적화용 중복 컬럼 |
-| `rider_id` | text | 라이더 ID |
-| `rider_name` | text | 업로드 시점 표시 이름 |
-| `order_no` | text | 주문번호 또는 축약 주문번호 |
-| `delivery_type` | text | `단건`, `멀티배달1~5`, `확인필요` |
-| `peak_time` | text | `Post_Lunch`, `Post_Dinner` 등 |
-| `pickup_area` | text | 픽업 지역 |
-| `dropoff_area` | text | 배달 지역 |
-| `completed_at` | timestamptz nullable | 배달 완료 시각 |
-| `distance_m` | numeric | 배달거리 m |
-| `settlement_amount` | integer | 업로드 원천의 정산금액 필드, 코칭센터에서 계산하지 않음 |
-| `created_at` | timestamptz | 저장 시각 |
+## 5. 권한 기준
 
-권장 제약:
+### admin
 
-- `unique(week_id, order_no)`
-- `index(week_code, rider_id)`
-- `index(rider_id, completed_at)`
-
-### `rider_weekly_summaries`
-
-라이더별 주간 집계 결과다.
-
-| 컬럼 | 타입 후보 | 설명 |
-| --- | --- | --- |
-| `id` | uuid | 집계 ID |
-| `week_id` | uuid FK upload_weeks.id | 주차 FK |
-| `week_code` | text | 조회 최적화 |
-| `rider_id` | text | 라이더 ID |
-| `rider_name` | text | 라이더명 |
-| `completed_count` | integer | 완료건수 |
-| `active_days` | integer | 출근횟수 |
-| `multi_rate` | numeric | 멀티비율 |
-| `post_lunch_rate` | numeric | Post_Lunch 참여율 |
-| `post_dinner_rate` | numeric | Post_Dinner 참여율 |
-| `dispatch_score` | integer | 배차 친화 점수 |
-| `created_at` | timestamptz | 생성 시각 |
-
-권장 제약:
-
-- `unique(week_id, rider_id)`
-- `index(rider_id, week_code)`
-
-### `coaching_messages`
-
-관리자 코칭 메시지 관리 데이터다.
-
-| 컬럼 | 타입 후보 | 설명 |
-| --- | --- | --- |
-| `id` | uuid | 메시지 ID |
-| `week_id` | uuid FK upload_weeks.id | 주차 FK |
-| `rider_id` | text | 라이더 ID |
-| `rider_name` | text | 표시명 |
-| `auto_message` | text | 자동 코칭 메시지 |
-| `custom_message` | text | 관리자 수정 메시지 |
-| `visible_to_rider` | boolean | 라이더 노출 ON/OFF |
-| `internal_memo` | text | 관리자 내부 메모 |
-| `updated_by` | uuid FK users.id | 수정 관리자 |
-| `updated_at` | timestamptz | 수정 시각 |
-
-### `pace_check_entries`
-
-라이더가 오늘의 페이스 체크에서 직접 입력한 현재 주차 상태다.
-
-| 컬럼 | 타입 후보 | 설명 |
-| --- | --- | --- |
-| `id` | uuid | 입력 ID |
-| `rider_id` | text | 라이더 ID |
-| `entry_date` | date | 입력 기준 날짜 |
-| `week_code` | text | 현재 목표 주차 코드 |
-| `today_completed_calls` | integer | 오늘 완료 콜 수 |
-| `today_start_time` | time nullable | 오늘 운행 시작 시간 |
-| `condition` | enum | `good`, `normal`, `tired`, `risk` |
-| `meal_status` | enum | `done`, `not_yet`, `skipped` |
-| `sleep_hours` | numeric | 수면 시간 |
-| `rest_status` | enum | `enough`, `short`, `none` |
-| `weekly_goal_calls` | integer | 이번 주 목표 |
-| `created_at` | timestamptz | 생성 시각 |
-| `updated_at` | timestamptz | 수정 시각 |
-
-권장 제약:
-
-- `unique(rider_id, entry_date)`
-
-### `operation_logs`
-
-운영 로그와 감사 기록이다.
-
-| 컬럼 | 타입 후보 | 설명 |
-| --- | --- | --- |
-| `id` | uuid | 로그 ID |
-| `type` | enum | `upload_preview_created`, `upload_applied`, `upload_cancelled`, `upload_rejected`, `sheet_missing`, `parse_failed`, `pace_settings_updated` |
-| `week_id` | uuid nullable FK upload_weeks.id | 관련 주차 |
-| `week_code` | text nullable | 주차 코드 |
-| `week_label` | text nullable | 주차 라벨 |
-| `source_file_name` | text nullable | 파일명 문자열만 저장 |
-| `actor_user_id` | uuid FK users.id | 실행 사용자 |
-| `summary` | jsonb | 총행수, 유효 오더 후보, 확인 필요 행, 이슈 건수, 라이더 수 |
-| `created_at` | timestamptz | 로그 시각 |
-
-로그에는 원천 파일 바이너리, 브라우저 `File` 객체, 불필요한 개인정보를 넣지 않는다.
-
-### `pace_check_settings`
-
-관리자 페이스 체크 기본 설정이다.
-
-| 컬럼 | 타입 후보 | 설명 |
-| --- | --- | --- |
-| `id` | uuid | 설정 ID |
-| `default_weekly_goal_calls` | integer | 기본 이번 주 목표 콜 수 |
-| `sleep_warning_hours` | numeric | 수면 경고 기준 |
-| `risk_condition_safety_message` | text | 위험 컨디션 안전 문구 |
-| `skipped_meal_message` | text | 식사 건너뜀 안내 문구 |
-| `day_routine_message` | text | 주간형 루틴 문구 |
-| `night_routine_message` | text | 야간형 루틴 문구 |
-| `music_mode_safety_note` | text | 음악 모드 안전 문구 |
-| `updated_by` | uuid FK users.id | 수정 관리자 |
-| `updated_at` | timestamptz | 수정 시각 |
-
-## 주요 관계도
-
-```text
-users(admin) 1 ── n upload_weeks
-upload_weeks 1 ── n normalized_orders
-upload_weeks 1 ── n rider_weekly_summaries
-upload_weeks 1 ── n coaching_messages
-upload_weeks 1 ── n operation_logs
-users(rider) 1 ── n pace_check_entries
-users(admin) 1 ── n operation_logs
-```
-
-조회 기준:
-
-- 관리자: 전체 주차, 전체 라이더, 전체 운영 로그 조회
-- 라이더: 본인 `rider_id`의 최신 반영 주차 오더, 집계, 코칭 메시지, 페이스 체크 입력만 조회
-- 승인대기: 데이터 화면 접근 불가
-
-## 권한 기준
-
-관리자:
+관리자는 전체 운영 데이터에 접근할 수 있다.
 
 - 업로드 미리보기 생성
 - 이번 주차 데이터 반영
-- 검수 결과 확인
-- 전체 라이더 집계 조회
+- 검수 결과 조회
+- 전체 대시보드 조회
+- 전체 라이더 주간 집계 조회
 - 코칭 메시지 수정
-- 노출 ON/OFF 변경
+- 라이더 노출 ON/OFF 변경
 - 페이스 체크 설정 변경
 - 운영 로그 조회
+- 정산앱 외부 링크 이동
 
-라이더:
+주의:
 
-- 본인 `rider_id`의 최신 반영 주차 데이터 조회
-- 본인 코칭 메시지 조회
-- 본인 페이스 체크 입력 생성/수정
-- 타 라이더 선택 UI 및 전체 조회 권한 없음
+- 관리자 계정은 최소 인원에게만 부여한다.
+- 관리자 권한 변경 이력은 운영 로그 또는 별도 감사 로그에 남긴다.
 
-승인대기:
+### rider
 
-- 승인 대기 안내 화면만 조회
-- 운행 데이터, 코칭, 페이스 체크, 정산앱 링크 접근 제한 여부는 운영 정책으로 결정
+라이더는 본인 `rider_id`에 매핑된 데이터만 조회한다.
 
-## 개인정보/민감정보 최소화 원칙
+- 본인 내현황 조회
+- 본인 내오더 조회
+- 본인 내지도 조회
+- 본인 내코칭 조회
+- 본인 오늘의 페이스 체크 입력/수정
+- 본인에게 노출 ON인 코칭 메시지만 조회
+- 정산앱 외부 링크 이동
 
-- `rider_id`와 표시 이름만 기본 저장한다.
-- 전화번호, 계좌번호, 주민등록번호, 상세 주소, 불필요한 연락처는 저장하지 않는다.
-- 원천 엑셀 파일명은 추적용 문자열로만 저장한다.
-- 정산금액은 원천 업로드 필드를 보관할 수 있으나, 코칭센터에서 계산하지 않는다.
-- 정산 확정, 지급 상태, 상세 원장은 기존 정산앱 기준으로 유지한다.
-- 운영 로그에는 파일 바이너리, 원본 행 전체, 불필요한 개인정보를 남기지 않는다.
+금지:
 
-## 원천 엑셀 미저장 원칙
+- 다른 라이더 선택 UI
+- 다른 라이더 오더/집계/코칭 조회
+- 관리자 화면 접근
+- 운영 로그 조회
 
-DB 도입 후에도 원천 엑셀 파일 자체는 저장하지 않는다.
+### pending
 
-저장 가능한 것:
+승인대기 계정은 승인 대기 안내만 조회한다.
 
-- 검증된 파일명
-- 주차 코드/라벨
-- 검수 요약
-- 정규화된 오더 데이터
-- 라이더별 집계
-- 코칭 메시지
-- 운영 로그 요약
+- 관리자 데이터 접근 불가
+- 라이더 데이터 접근 불가
+- 업로드/검수/코칭/운영 로그 접근 불가
+- 오늘의 페이스 체크 입력 불가
 
-저장하지 않는 것:
+운영 전 결정:
 
-- `.xlsx` 바이너리
-- 브라우저 `File`
-- ArrayBuffer
-- 파싱 전 행 전체
-- 정산 최종 파일
+- pending 계정이 정산앱 링크를 볼 수 있는지 여부
+- 승인/반려/비활성화 처리 주체
+- 승인 시 `rider_id` 매핑 방식
 
-## 전환 시 바뀌는 구현 포인트
+## 6. Supabase RLS 정책 초안
 
-현재:
+이 섹션은 정책 방향 초안이다. 실제 SQL 적용 전에는 Supabase 공식 문서, changelog, 프로젝트 설정, Data API 노출 설정을 다시 확인해야 한다.
 
-- `latestUploadedWeekData`는 브라우저 상태에 있다.
-- 새로고침 후 다시 업로드가 필요할 수 있다.
-- 운영 로그와 페이스 설정도 세션 기준이다.
+기본 원칙:
 
-DB 전환 후:
+- `public` 등 노출 가능한 schema의 모든 테이블에 RLS를 켠다.
+- 브라우저 클라이언트에 `service_role` 또는 secret key를 절대 노출하지 않는다.
+- 권한 판단에는 사용자가 수정 가능한 `user_metadata`를 쓰지 않는다.
+- 역할과 `rider_id`는 DB의 `profiles` 테이블 또는 `app_metadata` 기반으로 관리한다.
+- UPDATE 정책은 SELECT 정책도 함께 필요하다는 점을 확인한다.
+- view를 만들 경우 RLS 우회를 막기 위해 `security_invoker` 또는 비노출 schema를 검토한다.
 
-- 앱 시작 시 DB에서 최신 `applied` 주차를 로드한다.
-- 업로드 미리보기는 저장 전 상태 또는 `preview` 상태로 분리한다.
-- `이번 주차 데이터로 반영` 시 `upload_weeks.status = applied`와 관련 테이블을 트랜잭션으로 확정한다.
-- 잘못된 파일 업로드는 기존 `applied` 주차를 덮어쓰지 않는다.
-- 라이더 화면은 RLS 또는 서버 검증으로 본인 `rider_id`만 조회한다.
+권장 프로필 구조:
 
-트랜잭션 후보:
+| 테이블 | 역할 |
+| --- | --- |
+| `profiles` | Supabase Auth 사용자와 앱 권한/라이더 ID를 매핑 |
+| `upload_weeks` | 업로드 주차 메타데이터 |
+| `normalized_orders` | 정규화된 오더 |
+| `rider_weekly_summaries` | 라이더별 주간 집계 |
+| `coaching_messages` | 코칭 메시지 |
+| `pace_check_entries` | 라이더 수기 입력 |
+| `pace_check_settings` | 관리자 설정 |
+| `operation_logs` | 운영 감사 로그 |
 
-1. `upload_weeks` 생성 또는 상태 갱신
-2. `normalized_orders` upsert
-3. `rider_weekly_summaries` upsert
-4. `coaching_messages` 생성/갱신
-5. `operation_logs` 기록
+예상 RLS 방향:
 
-## 운영 전 체크리스트
+| 테이블 | admin 정책 | rider 정책 | pending 정책 |
+| --- | --- | --- | --- |
+| `profiles` | 전체 조회/승인 상태 변경 | 본인 프로필 조회 | 본인 승인대기 상태 조회 |
+| `upload_weeks` | 전체 CRUD | 본인 데이터가 있는 applied 주차 메타 조회 | 접근 불가 |
+| `normalized_orders` | 전체 조회/삽입/교체 | `rider_id`가 본인과 일치하는 applied 주차만 조회 | 접근 불가 |
+| `rider_weekly_summaries` | 전체 조회/삽입/교체 | `rider_id`가 본인과 일치하는 집계만 조회 | 접근 불가 |
+| `coaching_messages` | 전체 조회/수정 | 본인 `rider_id`이고 `visible_to_rider = true`인 메시지만 조회 | 접근 불가 |
+| `pace_check_entries` | 운영상 필요 시 제한 조회 | 본인 입력 조회/생성/수정 | 접근 불가 |
+| `pace_check_settings` | 조회/수정 | 읽기 전용 조회 | 접근 불가 |
+| `operation_logs` | 전체 조회/삽입 | 접근 불가 | 접근 불가 |
 
-- [ ] Supabase 프로젝트를 만들지 여부 결정
-- [ ] Auth를 Supabase Auth로 할지 별도 인증으로 할지 결정
-- [ ] `rider_id` 발급/매핑 기준 확정
-- [ ] 같은 주차 재업로드 시 교체, 버전 이력, 롤백 정책 결정
-- [ ] RLS 정책 작성: 관리자 전체 조회, 라이더 본인 조회
-- [ ] 원천 엑셀 파일 미저장 정책 재확인
-- [ ] 정산 최종 파일 업로드 차단 정책 유지
-- [ ] 개인정보 최소 저장 범위 승인
-- [ ] 운영 로그 보존 기간 결정
-- [ ] 백업/복구 정책 결정
-- [ ] `xlsx` 패키지 취약점과 파일 크기 제한, 파싱 위치 검토
-- [ ] 서버 저장 전 테스트 데이터와 실제 라이더 데이터 분리
-- [ ] 외부 베타 URL 접근 대상과 기간 제한
+정책 pseudo SQL 예시:
+
+```sql
+-- 실제 적용용 SQL이 아니라 정책 방향을 보여주는 초안이다.
+
+-- admin 판별은 profiles.role = 'admin'과 profiles.account_status = 'active'를 기준으로 한다.
+-- rider 판별은 profiles.rider_id와 각 데이터의 rider_id를 비교한다.
+
+-- normalized_orders
+-- admin: all rows
+-- rider: own rider_id rows only, and only applied weeks
+
+-- coaching_messages
+-- admin: all rows
+-- rider: own rider_id rows only when visible_to_rider = true
+
+-- operation_logs
+-- admin: select/insert
+-- rider/pending: no access
+```
+
+구현 전 추가 검토:
+
+- `profiles`를 `public`에 둘지, 별도 private schema를 둘지
+- role 확인 helper function을 만들 경우 `security definer` 위치와 권한
+- `upload_weeks.status = 'applied'` 기준으로 라이더 조회를 제한하는 방식
+- 같은 주차 재업로드 시 기존 데이터를 교체할지 버전 이력으로 남길지
+- 관리자 수정 메시지와 내부 메모의 라이더 노출 차단 보장
+- 페이스 체크 입력이 건강/컨디션 정보에 가까우므로 관리자 조회 범위를 최소화할지
+
+## 7. 베타 이후 DB 전환 순서
+
+1. 운영 정책 확정
+   - 개인 계정 발급 방식
+   - 관리자 권한 부여자
+   - `rider_id` 매핑 원칙
+   - 데이터 보관 기간
+
+2. Supabase 프로젝트 검토
+   - 개발/베타/운영 프로젝트 분리 여부
+   - Auth 사용 여부
+   - region, 백업, 비용 기준
+   - 공식 문서/changelog 확인
+
+3. 스키마 초안 확정
+   - `profiles`
+   - `upload_weeks`
+   - `normalized_orders`
+   - `rider_weekly_summaries`
+   - `coaching_messages`
+   - `pace_check_entries`
+   - `pace_check_settings`
+   - `operation_logs`
+
+4. RLS 초안 작성 및 리뷰
+   - admin 전체 접근
+   - rider 본인 데이터 접근
+   - pending 데이터 접근 차단
+   - operation log admin 전용
+
+5. 로컬/개발 DB에서 마이그레이션 검증
+   - 샘플 계정
+   - 샘플 주차
+   - 정상 업로드 반영
+   - 잘못된 업로드가 기존 applied 데이터를 덮지 않는지
+
+6. 앱 저장 어댑터 교체
+   - `InMemoryWeekDataRepository` 유지
+   - `SupabaseWeekDataRepository` 별도 추가
+   - 기능 flag 또는 환경 설정으로 전환
+
+7. 인증 흐름 전환
+   - 테스트 계정 숨김
+   - 개인 계정 로그인
+   - pending 승인 흐름
+   - 로그아웃/세션 만료 처리
+
+8. 베타 데이터 마이그레이션 여부 결정
+   - 기존 베타 데이터 폐기
+   - 필요한 요약만 수동 이관
+   - 실제 원천 엑셀 파일은 이관하지 않음
+
+9. 운영 전 보안 점검
+   - RLS 테스트
+   - service key 노출 여부
+   - 개인정보 최소화
+   - 백업/복구 리허설
+
+## 8. 비용/운영 리스크
+
+| 리스크 | 설명 | 완화 방안 |
+| --- | --- | --- |
+| 월 비용 증가 | 사용자 수, row 수, 백업, 로그 보관에 따라 비용 증가 | 베타 기간 보관 기간 제한, 원천 파일 미저장 |
+| 권한 오설정 | RLS 누락 시 라이더가 타인 데이터를 볼 위험 | 모든 테이블 RLS 기본 ON, 정책 테스트 자동화 |
+| 인증 운영 부담 | 계정 발급, 비밀번호 초기화, 퇴사/이탈 처리 필요 | 관리자 운영 절차 문서화, 계정 비활성화 정책 |
+| 원천 데이터 과보관 | 엑셀 원본 저장 시 개인정보/정산정보 관리 책임 증가 | 원본 파일/ArrayBuffer/File 미저장 원칙 유지 |
+| 잘못된 업로드 반영 | 오더/집계가 잘못 저장될 수 있음 | preview와 applied 분리, 트랜잭션, 운영 로그 |
+| 같은 주차 재업로드 | 기존 데이터 교체/이력 보관 정책 혼선 | 운영 전 정책 확정: 교체, 버전 이력, 롤백 |
+| 성능 저하 | 오더 데이터 누적 시 조회 느려짐 | `week_code`, `rider_id`, `order_no` 인덱스 |
+| xlsx 보안 | 악성/대용량 파일 파싱 위험 | 파일 크기 제한, 확장자/시트 검수, 서버 파싱 시 격리 |
+| 정산앱 혼동 | 코칭센터가 정산앱처럼 오해될 수 있음 | 외부 링크 안내 문구 유지, 계산 기능 미추가 |
+| 운영 로그 개인정보 | 로그에 민감정보가 남을 위험 | summary 중심 로그, 원천 행/개인정보 미기록 |
+
+## 9. DB 도입 전 최종 결정 체크리스트
+
+| 체크 항목 | 결정 |
+| --- | --- |
+| Supabase/PostgreSQL을 우선 DB로 선택할지 결정 | [ ] |
+| 개발/베타/운영 프로젝트를 분리할지 결정 | [ ] |
+| Supabase Auth를 사용할지 결정 | [ ] |
+| 테스트 계정 폐기 또는 숨김 처리 방법 확정 | [ ] |
+| 관리자 개인 계정 발급 방식 확정 | [ ] |
+| 라이더 개인 계정 발급 방식 확정 | [ ] |
+| `rider_id` 발급/매핑 원칙 확정 | [ ] |
+| pending 승인/반려/비활성화 정책 확정 | [ ] |
+| 같은 주차 재업로드 시 교체/버전 보관/롤백 정책 확정 | [ ] |
+| 원본 엑셀 파일 미저장 원칙 재확인 | [ ] |
+| 정산 최종 파일 업로드 차단 정책 유지 확인 | [ ] |
+| 정산앱은 외부 링크이며 데이터 연동이 아님을 확인 | [ ] |
+| `settlement_amount` 표시/비표시 범위 결정 | [ ] |
+| 페이스 체크 입력의 관리자 조회 범위 결정 | [ ] |
+| 운영 로그 보관 기간 결정 | [ ] |
+| 백업/복구 정책 결정 | [ ] |
+| 모든 노출 테이블 RLS ON 계획 수립 | [ ] |
+| admin/rider/pending RLS 테스트 케이스 작성 | [ ] |
+| `service_role` key가 클라이언트에 노출되지 않도록 배포 정책 수립 | [ ] |
+| 공식 Supabase docs/changelog 확인 후 실제 SQL 작성 | [ ] |
+| xlsx 취약점, 파일 크기 제한, 파싱 격리 방안 검토 | [ ] |
+| 개인정보 최소화 항목 최종 승인 | [ ] |
+
+## 10. 이번 단계에서 하지 않는 일
+
+- Supabase 패키지 설치
+- DB 프로젝트 생성
+- `.env` 추가
+- API route 추가
+- 실제 인증 구현
+- RLS SQL 적용
+- 원천 엑셀 파일 저장
+- 정산 계산
+- 정산 엑셀 파싱
+- GPS/실시간 콜/문자/음악 기능 추가
+
