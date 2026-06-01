@@ -1,5 +1,14 @@
 # Rider Coaching Center Ver.2 Beta Test Checklist
 
+## 최종 공개 전 체크리스트 참조
+
+1차 베타 참여자에게 URL을 공유하기 전 최종 운영 점검은 `app/docs/beta-release-final-checklist.md`를 기준으로 확인한다.
+
+- 배포 URL, 모바일 360px, 관리자/라이더/pending 로그인 확인
+- 엑셀 업로드, 미리보기, 반영, 검수, 운영 로그 확인
+- 정산앱 양방향 링크와 데이터 비연동 문구 확인
+- 베타 제외 기능과 피드백 수집 준비 확인
+
 ## 링크 운영 정책 참조
 
 정산앱과 코칭센터의 양방향 링크 운영 기준은 `app/docs/settlement-coaching-link-policy.md`를 따른다.
