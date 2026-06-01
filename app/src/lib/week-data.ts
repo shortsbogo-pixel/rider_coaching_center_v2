@@ -133,6 +133,15 @@ export function getAdminDashboardSummary(weekData: LatestUploadedWeekData): Admi
   };
 }
 
+export function getVisibleTopCompletedRiderMetrics<T extends { completedCount: number }>(
+  metrics: T[],
+  expanded: boolean,
+  collapsedLimit = 3,
+): T[] {
+  if (expanded) return metrics;
+  return metrics.slice(0, collapsedLimit);
+}
+
 export function getWeekOrdersForUser(weekData: LatestUploadedWeekData, user: UserSession): OrderRecord[] {
   if (user.accountStatus !== "active") return [];
   if (user.role === "admin") return weekData.orders;

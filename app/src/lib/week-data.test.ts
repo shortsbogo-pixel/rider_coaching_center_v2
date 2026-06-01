@@ -9,6 +9,7 @@ import {
   cancelParsedUploadPreview,
   createWeekDataUploadState,
   getAdminDashboardSummary,
+  getVisibleTopCompletedRiderMetrics,
   getWeekCoachingForRider,
   getWeekMetricForUser,
   getWeekOrdersForUser,
@@ -281,5 +282,22 @@ describe("latest uploaded week data", () => {
 
     expect(appliedState.latestUploadedWeekData).toBe(appliedWeekData);
     expect(appliedState.parsedUploadPreview).toBe(blockedParseResult);
+  });
+
+  it("limits top completed rider metrics to three until expanded", () => {
+    const metrics = [
+      { riderId: "r-001", completedCount: 30 },
+      { riderId: "r-002", completedCount: 28 },
+      { riderId: "r-003", completedCount: 20 },
+      { riderId: "r-004", completedCount: 18 },
+    ];
+
+    expect(getVisibleTopCompletedRiderMetrics(metrics, false).map((metric) => metric.riderId)).toEqual(["r-001", "r-002", "r-003"]);
+    expect(getVisibleTopCompletedRiderMetrics(metrics, true).map((metric) => metric.riderId)).toEqual([
+      "r-001",
+      "r-002",
+      "r-003",
+      "r-004",
+    ]);
   });
 });

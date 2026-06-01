@@ -100,6 +100,7 @@ import {
   cancelParsedUploadPreview,
   createWeekDataUploadState,
   getAdminDashboardSummary,
+  getVisibleTopCompletedRiderMetrics,
   getWeekCoachingForRider,
   getWeekMetricForUser,
   getWeekOrdersForUser,
@@ -563,8 +564,12 @@ function formatLogTime(value?: string | null) {
 }
 
 function AdminDashboard({ weekData, lastAppliedLog }: { weekData: LatestUploadedWeekData; lastAppliedLog: OperationLogEntry | null }) {
+  const [showAllTopRiders, setShowAllTopRiders] = useState(false);
   const summary = getAdminDashboardSummary(weekData);
   const topCompleted = Math.max(...weekData.metrics.map((metric) => metric.completedCount), 1);
+  const visibleTopRiderMetrics = getVisibleTopCompletedRiderMetrics(weekData.metrics, showAllTopRiders);
+  const hasMoreTopRiders = weekData.metrics.length > 3;
+
   return (
     <>
       <ScreenHeader eyebrow="Admin Dashboard" title="주간 대시보드" description={`${weekData.weekLabel} ${weekData.sourceLabel} 기준 운영 현황입니다.`} />
@@ -581,10 +586,20 @@ function AdminDashboard({ weekData, lastAppliedLog }: { weekData: LatestUploaded
             <h2 className="text-lg font-black">완료 콜 수 상위 라이더</h2>
             <p className="text-sm text-slate-500">카드 클릭 전 코칭 우선순위를 확인합니다.</p>
           </div>
-          <ChevronRight size={20} className="text-slate-400" />
+          {hasMoreTopRiders ? (
+            <button
+              className="min-h-11 rounded-full border border-slate-200 px-3 text-sm font-black text-blue-700 transition active:bg-blue-50"
+              onClick={() => setShowAllTopRiders((current) => !current)}
+              type="button"
+            >
+              {showAllTopRiders ? "접기" : "전체 보기"}
+            </button>
+          ) : (
+            <ChevronRight size={20} className="text-slate-400" />
+          )}
         </div>
         <div className="space-y-4">
-          {weekData.metrics.map((metric) => (
+          {visibleTopRiderMetrics.map((metric) => (
             <BarRow key={metric.riderId} label={`${metric.riderName} · ${metric.grade}`} value={metric.completedCount} max={topCompleted} />
           ))}
         </div>
