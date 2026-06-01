@@ -96,6 +96,7 @@ import {
 } from "@/lib/rider-pace-check";
 import { getRiderMapPositionRecommendations } from "@/lib/rider-map-recommendation";
 import { getSettlementWebLinkState } from "@/lib/settlement-link";
+import { getTopPickupAreasByWeek } from "@/lib/rider-position-recommendation";
 import {
   applyParsedUploadPreview,
   cancelParsedUploadPreview,
@@ -616,6 +617,50 @@ function AdminDashboard({ weekData, lastAppliedLog }: { weekData: LatestUploaded
           <div className="flex justify-between gap-3"><span className="text-slate-500">마지막 반영 파일</span><strong className="text-right">{lastAppliedLog?.sourceFileName ?? "-"}</strong></div>
           <div className="flex justify-between"><span className="text-slate-500">마지막 반영 주차</span><strong>{lastAppliedLog?.weekLabel ?? "-"}</strong></div>
           <div className="flex justify-between"><span className="text-slate-500">마지막 반영 시간</span><strong>{formatLogTime(lastAppliedLog?.createdAt)}</strong></div>
+        </div>
+      </Panel>
+      <Panel>
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-black">픽업 밀집 분석</h2>
+            <p className="mt-1 text-sm text-slate-500">{weekData.weekLabel} 기준 최신 업로드 주차의 픽업 완료 콜 TOP 5 권역입니다.</p>
+          </div>
+          <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black uppercase text-slate-600">TOP 5</span>
+        </div>
+        {(() => {
+          const topPickupAreas = getTopPickupAreasByWeek(
+            weekData.orders.map((order) => ({ ...order, orderNo: order.id })),
+            weekData.weekCode,
+            5,
+          );
+          if (!topPickupAreas.length) {
+            return (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                <p className="text-sm font-black text-slate-900">픽업 밀집 권역을 계산할 데이터가 아직 부족합니다.</p>
+                <p className="mt-2 text-xs text-slate-500">주차 데이터가 반영되면 픽업이 많았던 권역을 보여드립니다.</p>
+              </div>
+            );
+          }
+
+          return (
+            <div className="space-y-3">
+              {topPickupAreas.map((area, index) => (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3" key={area.pickupArea}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-slate-950">{index + 1}. {area.pickupArea}</p>
+                      <p className="mt-1 text-xs text-slate-500">완료 콜 {area.completedCount}건</p>
+                    </div>
+                    <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-black text-slate-600">{area.completedCount}건</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+        <div className="mt-4 space-y-1 text-xs text-slate-500">
+          <p>선택 주차 업로드 데이터 기준입니다.</p>
+          <p>실시간 위치 또는 현재 배차 현황이 아닙니다.</p>
         </div>
       </Panel>
     </>
