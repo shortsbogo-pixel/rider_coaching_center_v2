@@ -17,6 +17,8 @@ export type PositionTimeSlot =
   | "late_night"
   | "unknown";
 
+export type PositionTimeSlotFilter = "all" | PositionTimeSlot;
+
 export type DropoffPrecision = "dong";
 
 export type ConfidenceLevel = "low" | "medium" | "high";
@@ -41,7 +43,7 @@ export interface PositionRecommendationInput {
 export interface PositionRecommendationFilters {
   weekCode?: string;
   weekday?: PositionWeekday;
-  timeSlot?: PositionTimeSlot;
+  timeSlot?: PositionTimeSlotFilter;
   riderId?: string;
   topN?: number;
 }
@@ -71,7 +73,7 @@ export interface RiderPositionContext {
 export interface PositionRecommendationResult {
   weekCode?: string;
   weekday?: PositionWeekday;
-  timeSlot?: PositionTimeSlot;
+  timeSlot?: PositionTimeSlotFilter;
   riderContext?: RiderPositionContext;
   recommendations: TimeSlotRecommendation[];
   totalCompletedCount: number;
@@ -135,15 +137,15 @@ export function getTimeSlotFromDate(
     return "unknown";
   }
 
-  if (hour >= 5 && hour <= 10) {
+  if (hour >= 6 && hour <= 10) {
     return "morning";
   }
 
-  if (hour >= 11 && hour <= 13) {
+  if (hour >= 11 && hour <= 12) {
     return "lunch_peak";
   }
 
-  if (hour >= 14 && hour <= 16) {
+  if (hour >= 13 && hour <= 16) {
     return "post_lunch";
   }
 
@@ -151,11 +153,11 @@ export function getTimeSlotFromDate(
     return "dinner_peak";
   }
 
-  if (hour >= 20 && hour <= 22) {
+  if (hour >= 20 && hour <= 23) {
     return "post_dinner";
   }
 
-  if (hour >= 23 || hour <= 4) {
+  if (hour <= 5) {
     return "late_night";
   }
 
@@ -372,7 +374,7 @@ function matchesFilters(order: PositionRecommendationInput, filters: PositionRec
     return false;
   }
 
-  if (filters.timeSlot && getOrderTimeSlot(order) !== filters.timeSlot) {
+  if (filters.timeSlot && filters.timeSlot !== "all" && getOrderTimeSlot(order) !== filters.timeSlot) {
     return false;
   }
 

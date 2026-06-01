@@ -639,3 +639,46 @@ UI 개선:
 - 기능 코드 변경 없음
 - 외부 API/DB/Supabase/GPS 연결 없음
 - 기존 업로드/검수/코칭/정산앱 링크/라이더 화면 로직 변경 없음
+
+## 32단계 시간대 필터 유틸 보강
+
+32단계에서는 UI를 변경하지 않고 배차 포지션 추천 순수 유틸의 시간대 필터 기준을 보강했다.
+
+보강 범위:
+
+- 시간대 필터 값에 `all`을 추가해 기본 전체 조회 기준을 명확히 했다.
+- `timeSlot`이 없거나 `all`이면 전체 오더를 포함한다.
+- 특정 `timeSlot`이 있으면 해당 시간대 오더만 집계한다.
+- `riderId`와 `timeSlot` 필터가 동시에 적용될 수 있게 유지했다.
+- `peakTime` 값이 해석 가능하면 `completedAt`/`assignedAt`보다 먼저 사용한다.
+
+시간대 기준:
+
+| 시간대 | 기준 |
+| --- | --- |
+| `morning` | 06:00~10:59 |
+| `lunch_peak` | 11:00~12:59 |
+| `post_lunch` | 13:00~16:59 |
+| `dinner_peak` | 17:00~19:59 |
+| `post_dinner` | 20:00~23:59 |
+| `late_night` | 00:00~05:59 |
+| `unknown` | 시간값 없음 또는 파싱 불가 |
+
+피크타임 우선 매핑:
+
+- `Post_Lunch` -> `post_lunch`
+- `Post_Dinner` -> `post_dinner`
+- `Lunch`, `Lunch_Peak` -> `lunch_peak`
+- `Dinner`, `Dinner_Peak` -> `dinner_peak`
+
+32단계에서 하지 않은 일:
+
+- 라이더/관리자 UI 변경
+- Google Maps/API/GPS/DB/Supabase 연결
+- 외부 API 호출
+- 실시간 데이터 또는 위치 기반 기능 추가
+
+다음 후보:
+
+- 33단계: 라이더 "어디서 대기할까?" 카드에 시간대 필터 칩 추가
+- 34단계: 관리자 "픽업 밀집 분석" 카드에 시간대 필터 추가

@@ -92,6 +92,134 @@ const sampleOrders: PositionRecommendationInput[] = [
 ];
 
 describe("rider position recommendation", () => {
+  const timeSlotOrders: PositionRecommendationInput[] = [
+    {
+      weekCode: "2026_05-4",
+      riderId: "r-001",
+      riderName: "Rider One",
+      pickupArea: "Morning Area",
+      completedAt: "2026-06-01T06:10:00+09:00",
+      assignedAt: "2026-06-01T06:00:00+09:00",
+      orderNo: "TIME-001",
+    },
+    {
+      weekCode: "2026_05-4",
+      riderId: "r-001",
+      riderName: "Rider One",
+      pickupArea: "Post Lunch Area",
+      completedAt: "2026-06-01T09:30:00+09:00",
+      assignedAt: "2026-06-01T09:00:00+09:00",
+      peakTime: "Post_Lunch",
+      orderNo: "TIME-002",
+    },
+    {
+      weekCode: "2026_05-4",
+      riderId: "r-001",
+      riderName: "Rider One",
+      pickupArea: "Post Dinner Area",
+      completedAt: "2026-06-01T10:30:00+09:00",
+      assignedAt: "2026-06-01T10:00:00+09:00",
+      peakTime: "Post_Dinner",
+      orderNo: "TIME-003",
+    },
+    {
+      weekCode: "2026_05-4",
+      riderId: "r-002",
+      riderName: "Rider Two",
+      pickupArea: "Dinner Area",
+      completedAt: "2026-06-01T18:30:00+09:00",
+      assignedAt: "2026-06-01T18:00:00+09:00",
+      orderNo: "TIME-004",
+    },
+    {
+      weekCode: "2026_05-4",
+      riderId: "r-001",
+      riderName: "Rider One",
+      pickupArea: "Dinner Area",
+      completedAt: "2026-06-01T18:50:00+09:00",
+      assignedAt: "2026-06-01T18:20:00+09:00",
+      orderNo: "TIME-005",
+    },
+    {
+      weekCode: "2026_05-4",
+      riderId: "r-001",
+      riderName: "Rider One",
+      pickupArea: "Unknown Area",
+      completedAt: "not-a-date",
+      assignedAt: "",
+      orderNo: "TIME-006",
+    },
+  ];
+
+  it("normalizes peak time before falling back to order timestamps", () => {
+    expect(getTimeSlotFromDate("2026-06-01T09:00:00+09:00", "Post_Lunch")).toBe("post_lunch");
+    expect(getTimeSlotFromDate("2026-06-01T09:00:00+09:00", "Post_Dinner")).toBe("post_dinner");
+    expect(getTimeSlotFromDate("2026-06-01T09:00:00+09:00", "Lunch")).toBe("lunch_peak");
+    expect(getTimeSlotFromDate("2026-06-01T09:00:00+09:00", "Dinner_Peak")).toBe("dinner_peak");
+  });
+
+  it("classifies timestamps using the supported time slot boundaries", () => {
+    expect(getTimeSlotFromDate("2026-06-01T05:59:00+09:00")).toBe("late_night");
+    expect(getTimeSlotFromDate("2026-06-01T06:00:00+09:00")).toBe("morning");
+    expect(getTimeSlotFromDate("2026-06-01T10:59:00+09:00")).toBe("morning");
+    expect(getTimeSlotFromDate("2026-06-01T11:00:00+09:00")).toBe("lunch_peak");
+    expect(getTimeSlotFromDate("2026-06-01T12:59:00+09:00")).toBe("lunch_peak");
+    expect(getTimeSlotFromDate("2026-06-01T13:00:00+09:00")).toBe("post_lunch");
+    expect(getTimeSlotFromDate("2026-06-01T16:59:00+09:00")).toBe("post_lunch");
+    expect(getTimeSlotFromDate("2026-06-01T17:00:00+09:00")).toBe("dinner_peak");
+    expect(getTimeSlotFromDate("2026-06-01T19:59:00+09:00")).toBe("dinner_peak");
+    expect(getTimeSlotFromDate("2026-06-01T20:00:00+09:00")).toBe("post_dinner");
+    expect(getTimeSlotFromDate("2026-06-01T23:59:00+09:00")).toBe("post_dinner");
+    expect(getTimeSlotFromDate("2026-06-01T00:00:00+09:00")).toBe("late_night");
+    expect(getTimeSlotFromDate("not-a-date")).toBe("unknown");
+  });
+
+  it("keeps all orders when timeSlot filter is all or omitted", () => {
+    expect(summarizePickupAreas(timeSlotOrders, { weekCode: "2026_05-4", timeSlot: "all" }).map((stat) => stat.pickupArea)).toEqual([
+      "Dinner Area",
+      "Morning Area",
+      "Post Dinner Area",
+      "Post Lunch Area",
+      "Unknown Area",
+    ]);
+    expect(summarizePickupAreas(timeSlotOrders, { weekCode: "2026_05-4" })).toHaveLength(5);
+  });
+
+  it("filters pickup areas by dinner peak time slot", () => {
+    const stats = summarizePickupAreas(timeSlotOrders, { weekCode: "2026_05-4", timeSlot: "dinner_peak" });
+
+    expect(stats.map((stat) => [stat.pickupArea, stat.completedCount])).toEqual([["Dinner Area", 2]]);
+  });
+
+  it("applies rider and time slot filters together", () => {
+    const stats = summarizePickupAreas(timeSlotOrders, {
+      weekCode: "2026_05-4",
+      riderId: "r-001",
+      timeSlot: "dinner_peak",
+    });
+
+    expect(stats.map((stat) => [stat.pickupArea, stat.completedCount])).toEqual([["Dinner Area", 1]]);
+  });
+
+  it("keeps unknown time values out of specific time slot filters", () => {
+    expect(summarizePickupAreas(timeSlotOrders, { weekCode: "2026_05-4", timeSlot: "unknown" }).map((stat) => stat.pickupArea)).toEqual([
+      "Unknown Area",
+    ]);
+    expect(summarizePickupAreas(timeSlotOrders, { weekCode: "2026_05-4", timeSlot: "post_dinner" }).map((stat) => stat.pickupArea)).not.toContain(
+      "Unknown Area",
+    );
+  });
+
+  it("keeps explicit top limits when time slot filters are used", () => {
+    const result = recommendPickupAreasByTimeSlot(timeSlotOrders, {
+      weekCode: "2026_05-4",
+      timeSlot: "all",
+      topN: 3,
+    });
+
+    expect(result.recommendations).toHaveLength(3);
+  });
+
   it("summarizes completed calls by normalized pickup area", () => {
     expect(normalizePickupArea(" 용전동 ")).toBe("용전동");
 
