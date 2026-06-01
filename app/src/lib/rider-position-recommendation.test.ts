@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  getConfidenceLevel,
+  getConfidenceLevelDescription,
+  getConfidenceLevelLabel,
   getTimeSlotFromDate,
   getWeekdayFromDate,
   getTopPickupAreasByWeek,
@@ -194,5 +197,26 @@ describe("rider position recommendation", () => {
     expect(serialized).not.toContain("latitude");
     expect(serialized).not.toContain("longitude");
     expect(serialized).not.toContain("currentlocation");
+  });
+
+  it("calculates confidence level based on completed count", () => {
+    expect(getConfidenceLevel(1)).toBe("low");
+    expect(getConfidenceLevel(2)).toBe("low");
+    expect(getConfidenceLevel(3)).toBe("medium");
+    expect(getConfidenceLevel(5)).toBe("medium");
+    expect(getConfidenceLevel(6)).toBe("high");
+    expect(getConfidenceLevel(10)).toBe("high");
+  });
+
+  it("provides Korean labels for confidence levels", () => {
+    expect(getConfidenceLevelLabel("low")).toBe("참고용");
+    expect(getConfidenceLevelLabel("medium")).toBe("신뢰도 보통");
+    expect(getConfidenceLevelLabel("high")).toBe("신뢰도 높음");
+  });
+
+  it("provides descriptions for confidence levels", () => {
+    expect(getConfidenceLevelDescription("low")).toContain("완료 콜 수가 적어");
+    expect(getConfidenceLevelDescription("medium")).toContain("데이터가 적어");
+    expect(getConfidenceLevelDescription("high")).toContain("추천 신뢰도");
   });
 });

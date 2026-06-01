@@ -1,6 +1,9 @@
 import type { OrderRecord } from "./domain";
 import {
+  getConfidenceLevel,
+  getConfidenceLevelLabel,
   recommendPickupAreasForRider,
+  type ConfidenceLevel,
   type PositionRecommendationInput,
   type TimeSlotRecommendation,
 } from "./rider-position-recommendation";
@@ -10,6 +13,8 @@ export interface RiderMapPositionRecommendation {
   pickupArea: string;
   completedCount: number;
   reason: string;
+  confidenceLevel: ConfidenceLevel;
+  confidenceLabel: string;
 }
 
 export interface RiderMapPositionRecommendationResult {
@@ -19,7 +24,13 @@ export interface RiderMapPositionRecommendationResult {
 }
 
 const TOP_RECOMMENDATION_LIMIT = 3;
-const RIDER_MAP_REASON = "선택 주차 본인 완료 콜이 많은 픽업권역입니다.";
+
+function buildRiderReason(completedCount: number): string {
+  if (completedCount >= 6) {
+    return "지난 업로드 주차 기준, 내가 픽업을 많이 수행한 권역입니다.";
+  }
+  return "선택 주차에 내가 픽업을 많이 수행한 권역에서 참고용 데이터를 완료 콜 수가 많지 않기 때문에 참고용으로만 확인하세요.";
+}
 
 export function getRiderMapPositionRecommendations(
   latestWeekOrders: OrderRecord[],
@@ -72,11 +83,14 @@ function toPositionRecommendationInput(order: OrderRecord): PositionRecommendati
 }
 
 function toRiderMapRecommendation(recommendation: TimeSlotRecommendation): RiderMapPositionRecommendation {
+  const confidenceLevel = getConfidenceLevel(recommendation.completedCount);
   return {
     rank: recommendation.rank,
     pickupArea: recommendation.pickupArea,
     completedCount: recommendation.completedCount,
-    reason: RIDER_MAP_REASON,
+    reason: buildRiderReason(recommendation.completedCount),
+    confidenceLevel,
+    confidenceLabel: getConfidenceLevelLabel(confidenceLevel),
   };
 }
 

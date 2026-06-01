@@ -96,7 +96,11 @@ import {
 } from "@/lib/rider-pace-check";
 import { getRiderMapPositionRecommendations } from "@/lib/rider-map-recommendation";
 import { getSettlementWebLinkState } from "@/lib/settlement-link";
-import { getTopPickupAreasByWeek } from "@/lib/rider-position-recommendation";
+import {
+  getConfidenceLevel,
+  getConfidenceLevelLabel,
+  getTopPickupAreasByWeek,
+} from "@/lib/rider-position-recommendation";
 import {
   applyParsedUploadPreview,
   cancelParsedUploadPreview,
@@ -644,17 +648,33 @@ function AdminDashboard({ weekData, lastAppliedLog }: { weekData: LatestUploaded
 
           return (
             <div className="space-y-3">
-              {topPickupAreas.map((area, index) => (
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3" key={area.pickupArea}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-black text-slate-950">{index + 1}. {area.pickupArea}</p>
-                      <p className="mt-1 text-xs text-slate-500">완료 콜 {area.completedCount}건</p>
+              {topPickupAreas.map((area, index) => {
+                const confidenceLevel = getConfidenceLevel(area.completedCount);
+                const confidenceLabel = getConfidenceLevelLabel(confidenceLevel);
+                const confidenceBgColor =
+                  confidenceLevel === "high"
+                    ? "bg-emerald-50"
+                    : confidenceLevel === "medium"
+                      ? "bg-amber-50"
+                      : "bg-slate-50";
+                const confidenceTextColor =
+                  confidenceLevel === "high"
+                    ? "text-emerald-700"
+                    : confidenceLevel === "medium"
+                      ? "text-amber-700"
+                      : "text-slate-600";
+                return (
+                  <div className={`rounded-2xl border border-slate-200 ${confidenceBgColor} p-3`} key={area.pickupArea}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-slate-950">{index + 1}. {area.pickupArea}</p>
+                        <p className="mt-1 text-xs text-slate-500">완료 콜 {area.completedCount}건</p>
+                      </div>
+                      <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-black ${confidenceTextColor}`}>{confidenceLabel}</span>
                     </div>
-                    <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-black text-slate-600">{area.completedCount}건</span>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           );
         })()}
@@ -1725,21 +1745,35 @@ function RiderMap({ latestWeekOrders, riderId }: { latestWeekOrders: OrderRecord
 
         {positionRecommendations.recommendations.length > 0 ? (
           <div className="mt-4 space-y-3">
-            {positionRecommendations.recommendations.map((recommendation) => (
-              <div className="grid grid-cols-[auto_1fr] gap-3 rounded-md border border-slate-200 bg-slate-50 p-3" key={recommendation.rank}>
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-950 text-sm font-black text-white">
-                  {recommendation.rank}
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <strong className="break-words text-sm font-black text-slate-950">{recommendation.pickupArea}</strong>
-                    <span className="shrink-0 text-xs font-black text-teal-700">{formatNumber(recommendation.completedCount)}콜</span>
+            {positionRecommendations.recommendations.map((recommendation) => {
+              const confidenceBgColor =
+                recommendation.confidenceLevel === "high"
+                  ? "bg-emerald-50"
+                  : recommendation.confidenceLevel === "medium"
+                    ? "bg-amber-50"
+                    : "bg-slate-50";
+              const confidenceTextColor =
+                recommendation.confidenceLevel === "high"
+                  ? "text-emerald-700"
+                  : recommendation.confidenceLevel === "medium"
+                    ? "text-amber-700"
+                    : "text-slate-600";
+              return (
+                <div className={`grid grid-cols-[auto_1fr] gap-3 rounded-md border border-slate-200 ${confidenceBgColor} p-3`} key={recommendation.rank}>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-950 text-sm font-black text-white">
+                    {recommendation.rank}
                   </div>
-                  <p className="mt-1 text-xs font-bold leading-5 text-slate-500">완료 콜 수 {formatNumber(recommendation.completedCount)}건</p>
-                  <p className="mt-2 text-xs font-bold leading-5 text-slate-600">{recommendation.reason}</p>
+                  <div className="min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <strong className="break-words text-sm font-black text-slate-950">{recommendation.pickupArea}</strong>
+                      <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-black ${confidenceTextColor}`}>{recommendation.confidenceLabel}</span>
+                    </div>
+                    <p className="mt-1 text-xs font-bold leading-5 text-slate-500">완료 콜 수 {formatNumber(recommendation.completedCount)}건</p>
+                    <p className="mt-2 text-xs font-bold leading-5 text-slate-600">{recommendation.reason}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="mt-4 rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">

@@ -19,6 +19,8 @@ export type PositionTimeSlot =
 
 export type DropoffPrecision = "dong";
 
+export type ConfidenceLevel = "low" | "medium" | "high";
+
 export interface PositionRecommendationInput {
   weekCode: string;
   riderId?: string;
@@ -158,6 +160,24 @@ export function getTimeSlotFromDate(
   }
 
   return "unknown";
+}
+
+export function getConfidenceLevel(completedCount: number): ConfidenceLevel {
+  if (completedCount >= 6) return "high";
+  if (completedCount >= 3) return "medium";
+  return "low";
+}
+
+export function getConfidenceLevelLabel(level: ConfidenceLevel): string {
+  if (level === "high") return "신뢰도 높음";
+  if (level === "medium") return "신뢰도 보통";
+  return "참고용";
+}
+
+export function getConfidenceLevelDescription(level: ConfidenceLevel): string {
+  if (level === "high") return "추천 신뢰도가 높은 권역입니다.";
+  if (level === "medium") return "데이터가 적어 참고용으로만 확인하세요.";
+  return "완료 콜 수가 적어 참고용으로만 확인하세요.";
 }
 
 export function normalizePickupArea(value: string | null | undefined): string {
