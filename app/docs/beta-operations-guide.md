@@ -1,5 +1,13 @@
 # Rider Coaching Center Ver.2 Beta Operations Guide
 
+## 실제 화면 점검 리포트 참조
+
+베타 공개 직전 실제 Vercel 배포 URL 기준 화면 점검 결과는 `app/docs/beta-release-screen-check-report.md`에 기록한다.
+
+- 기본 접속, 테스트 계정, 관리자/라이더/pending 화면을 확인한다.
+- 코칭센터와 정산앱 양방향 링크를 확인한다.
+- 모바일 360px 기준 화면 깨짐과 하단 메뉴 겹침 여부를 확인한다.
+
 ## 피드백 우선순위 문서 참조
 
 1차 베타 중 들어오는 피드백의 반영 순서는 `app/docs/beta-feedback-priority-plan.md`를 기준으로 정한다.
