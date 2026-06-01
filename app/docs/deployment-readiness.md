@@ -1,5 +1,13 @@
 # Deployment Readiness
 
+## 링크 운영 정책 참조
+
+정산앱과 코칭센터의 양방향 링크 운영 절차는 `app/docs/settlement-coaching-link-policy.md`를 기준으로 확인한다.
+
+- 코칭센터 배포 URL이 바뀌면 정산앱 관리자 모드의 코칭센터 링크 설정을 갱신해야 한다.
+- 정산앱 URL이 바뀌면 코칭센터의 `src/lib/settlement-link.ts` 안 `SETTLEMENT_WEB_URL`을 수정하고 다시 배포해야 한다.
+- 링크는 데이터 연동, SSO, 권한 통합이 아닌 외부 이동 기능이다.
+
 ## 현재 상태
 
 라이더 코칭센터 Ver.2는 쿠팡플러스 전용 모바일 웹앱 베타이다.

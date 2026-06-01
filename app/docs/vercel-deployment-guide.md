@@ -1,5 +1,13 @@
 # Vercel Deployment Guide
 
+## 링크 운영 정책 참조
+
+정산앱과 코칭센터의 양방향 링크 운영 절차는 `app/docs/settlement-coaching-link-policy.md`를 기준으로 확인한다.
+
+- Vercel 배포 URL이 변경되면 정산앱 관리자 모드의 코칭센터 URL 설정을 갱신한다.
+- 정산앱 URL이 변경되면 코칭센터 `SETTLEMENT_WEB_URL` 상수 수정 후 Vercel에 다시 배포한다.
+- 양방향 링크는 데이터 연동이 아니라 새 탭 또는 새 창으로 이동하는 외부 링크다.
+
 ## 목적
 
 라이더 코칭센터 Ver.2를 Manus 임시 배포뿐 아니라 Vercel Preview/Production 배포 후보로도 검토할 수 있도록 현재 준비 상태와 배포 전 확인 절차를 정리한다.
