@@ -1,5 +1,13 @@
 # Rider Coaching Center Ver.2 Beta Operations Guide
 
+## 피드백 우선순위 문서 참조
+
+1차 베타 중 들어오는 피드백의 반영 순서는 `app/docs/beta-feedback-priority-plan.md`를 기준으로 정한다.
+
+- 긴급/높음 항목은 베타 진행 중 우선 확인한다.
+- 보통/낮음 항목은 UX 개선 목록으로 분리한다.
+- 기능 추가 요청과 DB/Supabase 요청은 2차 개발 또는 별도 의사결정 항목으로 분리한다.
+
 ## 베타 공개 안내문 참조
 
 관리자/라이더/승인대기 계정에 실제로 공유할 짧은 카카오톡/문자 안내문은 `app/docs/beta-release-messages.md`를 사용한다.
