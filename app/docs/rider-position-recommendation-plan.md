@@ -407,3 +407,13 @@ Google Maps 실제 연동 전 확인:
 - 배차 보장 알고리즘
 - 고객 위치 표시
 
+## 27단계 구현 연결
+
+이번 단계에서는 화면이나 외부 지도 연동 없이, 기존 업로드 데이터에서 픽업지역 기준 추천 대기권역을 계산하는 순수 유틸 함수를 추가한다.
+
+- 구현 파일: `app/src/lib/rider-position-recommendation.ts`
+- 테스트 파일: `app/src/lib/rider-position-recommendation.test.ts`
+- 핵심 타입: `PositionRecommendationInput`, `PositionRecommendationResult`, `PickupAreaStat`, `TimeSlotRecommendation`, `RiderPositionContext`
+- 핵심 함수: `getWeekdayFromDate`, `getTimeSlotFromDate`, `normalizePickupArea`, `summarizePickupAreas`, `recommendPickupAreasByTimeSlot`, `recommendPickupAreasForRider`
+- 처리 범위: 선택 주차, 요일, 시간대, 라이더 기준 필터와 픽업지역 TOP 추천 계산
+- 제외 범위: Google Maps API, DB/Supabase, 외부 API, GPS/현재 위치, 실시간 콜 진행 데이터
