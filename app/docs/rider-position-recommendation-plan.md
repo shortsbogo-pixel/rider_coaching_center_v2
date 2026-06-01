@@ -418,3 +418,47 @@ Google Maps 실제 연동 전 확인:
 - 핵심 함수: `getWeekdayFromDate`, `getTimeSlotFromDate`, `normalizePickupArea`, `summarizePickupAreas`, `recommendPickupAreasByTimeSlot`, `recommendPickupAreasForRider`
 - 처리 범위: 선택 주차, 요일, 시간대, 라이더 기준 필터와 픽업지역 TOP 추천 계산
 - 제외 범위: Google Maps API, DB/Supabase, 외부 API, GPS/현재 위치, 실시간 콜 진행 데이터
+
+## 29단계 구현 연결
+
+29단계에서는 라이더 화면의 "어디서 대기할까?" 카드와 관리자 대시보드의 "픽업 밀집 분석" 카드를 구현했다.
+
+- 구현 파일: `app/src/components/rider-coaching-app.tsx`
+- 핵심 기능: 
+  - 라이더 카드: 선택 주차 기준 TOP 3 픽업 권역 표시
+  - 관리자 카드: 선택 주차 기준 TOP 5 픽업 권역 표시
+  - 권역별 완료 콜 수 표시
+- 엠퍼티 상태 처리: 데이터 부족 시 안내 문구 표시
+
+## 30단계 구현 연결
+
+30단계에서는 라이더 "어디서 대기할까?" 카드와 관리자 "픽업 밀집 분석" 카드에 신뢰도 레벨 표시를 추가했다.
+
+### 신뢰도 레벨 기능
+
+신뢰도 계산 기준:
+- **높음 (high)**: 완료 콜이 6건 이상 → "신뢰도 높음"
+- **보통 (medium)**: 완료 콜이 3~5건 → "신뢰도 보통"
+- **참고용 (low)**: 완료 콜이 1~2건 → "참고용"
+
+구현 함수:
+- `getConfidenceLevel(completedCount)`: 콜 수 기반 신뢰도 레벨 계산
+- `getConfidenceLevelLabel(level)`: 한국어 레벨 라벨 반환
+- `getConfidenceLevelDescription(level)`: 신뢰도 설명 문구 반환
+
+UI 개선:
+- 라이더 카드: 각 추천 권역별 신뢰도 배지 표시 (색상 코딩: 높음=녹색, 보통=주황색, 참고=회색)
+- 관리자 카드: 각 TOP 권역별 신뢰도 배지 표시
+- 라이더 추천 문구 개선:
+  - 높음: "지난 업로드 주차 기준, 내가 픽업을 많이 수행한 권역입니다."
+  - 보통/참고: "선택 주차에 내가 픽업을 많이 수행한 권역에서 참고용 데이터를 완료 최 수가 많지 않기 때문에 참고용으로만 확인하세요."
+
+테스트 추가:
+- 신뢰도 레벨 계산 검증 (1-2=low, 3-5=medium, 6+=high)
+- 한국어 레벨 라벨 검증
+- 설명 문구 검증
+
+결과:
+- 모든 테스트 통과 (50 tests passing)
+- 린트 체크 통과
+- 프로덕션 빌드 성공
